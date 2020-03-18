@@ -14,6 +14,7 @@ apiVersion: aws-iam.redradrat.xyz/v1beta1
 kind: Role
 metadata:
   name: role-sample
+  namespace: default
 spec:
   assumeRolePolicy:
     - effect: "Allow"
@@ -24,6 +25,26 @@ spec:
       conditions:
         - "blabla": "system:serviceaccount:kube-system:aws-cluster-autoscaler"
   createServiceAccount: true
+```
+
+Resulting `ServiceAccount`:
+```yaml
+❯ k get sa role-sample -o yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::0000000000:role/role-sample
+  creationTimestamp: "2020-02-30T00:25:61Z"
+  name: role-sample
+  namespace: default
+  ownerReferences:
+  - apiVersion: aws-iam.redradrat.xyz/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Role
+    name: role-sample
+    uid: ...
 ```
 
 ## Policy
