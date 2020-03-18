@@ -3,11 +3,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	awsarn "github.com/aws/aws-sdk-go/aws/arn"
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/go-logr/logr"
@@ -82,6 +80,12 @@ func deleteAWSObject(obj AWSObject, ctx context.Context, sw client.StatusWriter,
 
 	if arn != "" {
 		if err = deleteFunc(session, arn); err != nil {
+			obj.GetStatus().Message = err.Error()
+			obj.GetStatus().State = iamv1beta1.ErrorSyncState
+			err = sw.Update(ctx, obj.RuntimeObject())
+			if err != nil {
+				return err
+			}
 			return err
 		}
 	}
@@ -159,10 +163,6 @@ func ReconcileRole(role *iamv1beta1.Role, ctx context.Context, sw client.StatusW
 
 	log.Info(fmt.Sprintf("Created role '%s'", arn))
 
-	if role.Spec.CreateServiceAccount {
-
-	}
-
 	return nil
 }
 
@@ -178,18 +178,115 @@ func DeleteRole(role *iamv1beta1.Role, ctx context.Context, sw client.StatusWrit
 }
 
 func deleteRoleFunc(session awsclient.ConfigProvider, arn string) error {
-	thisarn, err := awsarn.Parse(arn)
-	if err != nil {
-		return err
-	}
-	splitres := strings.Split(thisarn.Resource, "/")
-
-	_, err = iam.DeleteRole(session, splitres[len(splitres)-1])
+	_, err := iam.DeleteRole(session, arn)
 	if iam.IsErrAndFound(err) {
 		return err
 	}
 
 	return nil
+}
+
+func ReconcilePolicyAttachment(policyAttachment *iamv1beta1.PolicyAttachment, ctx context.Context, c client.Client, sw client.StatusWriter, log logr.Logger) error {
+	rf := func(session awsclient.ConfigProvider, name string) (string, error) {
+
+		policyArn, targetArn, err := getPolicyAttachmentARNs(policyAttachment, ctx, c)
+		if err != nil {
+			return "", err
+		}
+
+		switch policyAttachment.Spec.TargetReference.Type {
+		case iamv1beta1.RoleTargetType:
+			_, err := iam.CreateRolePolicyAttachment(session, policyArn, targetArn)
+			if err != nil {
+				return "", err
+			}
+
+		}
+
+		return policyArn, nil
+	}
+
+	df := func(session awsclient.ConfigProvider, arn string) error {
+		policyArn, targetArn, err := getPolicyAttachmentARNs(policyAttachment, ctx, c)
+		if err != nil {
+			return err
+		}
+
+		_, err = iam.DeleteRolePolicyAttachment(session, policyArn, targetArn)
+		if iam.IsErrAndFound(err) {
+			return err
+		}
+
+		return nil
+	}
+
+	arn, err := reconcileAWSObject(policyAttachment, ctx, sw, log, rf, df)
+	if err != nil {
+		return err
+	}
+
+	log.Info(fmt.Sprintf("Created PolicyAttachment for Policy '%s'", arn))
+
+	return nil
+}
+
+func DeletePolicyAttachment(policyAttachment *iamv1beta1.PolicyAttachment, ctx context.Context, c client.Client, sw client.StatusWriter, log logr.Logger) error {
+
+	df := func(session awsclient.ConfigProvider, arn string) error {
+		policyArn, targetArn, err := getPolicyAttachmentARNs(policyAttachment, ctx, c)
+		if err != nil {
+			return err
+		}
+
+		_, err = iam.DeleteRolePolicyAttachment(session, policyArn, targetArn)
+		if iam.IsErrAndFound(err) {
+			return err
+		}
+
+		return nil
+	}
+
+	err := deleteAWSObject(policyAttachment, ctx, sw, log, df)
+	if err != nil {
+		return err
+	}
+
+	log.Info(fmt.Sprintf("Deleted PolicyAttachment for Policy '%s'", policyAttachment.Status.ARN))
+
+	return nil
+}
+
+func getPolicyAttachmentARNs(policyAttachment *iamv1beta1.PolicyAttachment, ctx context.Context, c client.Client) (string, string, error) {
+	var policyArn string
+	var targetArn string
+
+	polref := policyAttachment.Spec.PolicyReference
+	tarref := policyAttachment.Spec.TargetReference
+	policy := iamv1beta1.Policy{}
+	if err := c.Get(ctx, client.ObjectKey{Name: polref.Name, Namespace: polref.Namespace}, &policy); err != nil {
+		return "", "", err
+	}
+
+	policyArn = policy.Status.ARN
+
+	switch policyAttachment.Spec.TargetReference.Type {
+	case iamv1beta1.RoleTargetType:
+		role := iamv1beta1.Role{}
+		if err := c.Get(ctx, client.ObjectKey{Name: tarref.Name, Namespace: tarref.Namespace}, &role); err != nil {
+			return "", "", err
+		}
+		targetArn = role.Status.ARN
+
+	}
+
+	if policyArn == "" {
+		return "", "", fmt.Errorf("ARN is empty in status for policy reference")
+	}
+	if targetArn == "" {
+		return "", "", fmt.Errorf("ARN is empty in status for target reference")
+	}
+
+	return policyArn, targetArn, nil
 }
 
 func startReconciliation() (*session.Session, error) {

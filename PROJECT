@@ -7,4 +7,7 @@ resources:
 - group: iam
   kind: Policy
   version: v1beta1
+- group: iam
+  kind: PolicyAttachment
+  version: v1beta1
 version: "2"

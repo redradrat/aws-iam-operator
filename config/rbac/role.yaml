@@ -46,3 +46,23 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - iam.redradrat.xyz
+  resources:
+  - policyassignments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - iam.redradrat.xyz
+  resources:
+  - policyassignments/status
+  verbs:
+  - get
+  - patch
+  - update

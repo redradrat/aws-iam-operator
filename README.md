@@ -74,3 +74,20 @@ spec:
 ```
 
 ## PolicyAssignment
+
+The Policy resource abstracts the attachment of an AWS IAM Policy to another AWS IAM Resource e.g. Role (in future maybe User, Groups, etc.).
+
+```yaml
+apiVersion: aws-iam.redradrat.xyz/v1beta1
+kind: PolicyAttachment
+metadata:
+  name: policyattachment-sample
+spec:
+  policy:
+    name: policy-sample
+    namespace: default
+  target:
+    type: Role
+    name: role-sample
+    namespace: default
+```

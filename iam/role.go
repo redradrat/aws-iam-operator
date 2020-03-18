@@ -3,8 +3,10 @@ package iam
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	awsarn "github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/service/iam"
 )
@@ -29,9 +31,14 @@ func CreateRole(session client.ConfigProvider, rn string, pd PolicyDocument) (*i
 	return result, nil
 }
 
-func DeleteRole(session client.ConfigProvider, roleName string) (*iam.DeleteRoleOutput, error) {
+func DeleteRole(session client.ConfigProvider, roleArn string) (*iam.DeleteRoleOutput, error) {
 	// Create a IAM service client.
 	svc := iam.New(session)
+
+	roleName, err := RoleNamefromARN(roleArn)
+	if err != nil {
+		return nil, err
+	}
 
 	res, err := svc.DeleteRole(&iam.DeleteRoleInput{
 		RoleName: aws.String(roleName),
@@ -58,4 +65,13 @@ func GetRole(session client.ConfigProvider, roleName string) (*iam.GetRoleOutput
 	}
 
 	return result, nil
+}
+
+func RoleNamefromARN(arn string) (string, error) {
+	thisarn, err := awsarn.Parse(arn)
+	if err != nil {
+		return "", err
+	}
+	splitres := strings.Split(thisarn.Resource, "/")
+	return splitres[len(splitres)-1], nil
 }

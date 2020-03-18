@@ -1,0 +1,24 @@
+# permissions for end users to edit policyattachments.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: policyattachment-editor-role
+rules:
+- apiGroups:
+  - iam.redradrat.xyz
+  resources:
+  - policyattachments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - iam.redradrat.xyz
+  resources:
+  - policyattachments/status
+  verbs:
+  - get
