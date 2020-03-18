@@ -49,7 +49,9 @@ metadata:
 
 ## Policy
 
-The Policy resource abstracts an AWS IAM Polcy, including its ``.
+The Policy resource abstracts an AWS IAM Policy.
+
+For `conditions`, please check ![here](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html) for valid Operators. For the comparison, only String-type values are allowed as comparison values. For keys please check out https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html
 
 ```yaml
 apiVersion: aws-iam.redradrat.xyz/v1beta1
