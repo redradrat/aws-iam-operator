@@ -23,7 +23,8 @@ spec:
       actions:
         - "sts:AssumeRoleWithWebIdentity"
       conditions:
-        - "blabla": "system:serviceaccount:kube-system:aws-cluster-autoscaler"
+        "StringEquals":
+          "blablabla": "system:serviceaccount:kube-system:aws-cluster-autoscaler"
   createServiceAccount: true
 ```
 
