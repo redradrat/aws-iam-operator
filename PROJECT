@@ -1,0 +1,10 @@
+domain: redradrat.xyz
+repo: github.com/redradrat/aws-iam-operator
+resources:
+- group: iam
+  kind: Role
+  version: v1beta1
+- group: iam
+  kind: Policy
+  version: v1beta1
+version: "2"

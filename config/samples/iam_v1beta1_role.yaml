@@ -1,0 +1,14 @@
+apiVersion: aws-iam.redradrat.xyz/v1beta1
+kind: Role
+metadata:
+  name: role-sample
+spec:
+  assumeRolePolicy:
+    - effect: "Allow"
+      principal:
+        "Federated": "blabla"
+      actions:
+        - "sts:AssumeRoleWithWebIdentity"
+      conditions:
+        - "blabla": "system:serviceaccount:kube-system:aws-cluster-autoscaler"
+  createServiceAccount: true
