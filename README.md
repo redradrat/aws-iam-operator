@@ -30,7 +30,7 @@ spec:
 
 The Policy resource abstracts an AWS IAM Polcy, including its ``.
 
-```
+```yaml
 apiVersion: aws-iam.redradrat.xyz/v1beta1
 kind: Policy
 metadata:
