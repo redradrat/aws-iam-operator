@@ -6,8 +6,8 @@ An operator that enables AWS IAM management via Kubernetes custom resources.
 
 The Role resource abstracts an AWS IAM Role. 
 
-Setting an `assumeRolePolicy` is **mandatory**.
-Creating a `ServiceAccount` resource is possible via `createServiceAccount`. The created ServiceAccount includes the EKS OIDC annotation.
+Setting an `assumeRolePolicy` or an `assumeRolePolicyRef` is **mandatory**.
+Creating a `ServiceAccount` resource is possible via `createServiceAccount`. The created ServiceAccount includes the EKS OIDC support annotation.
 
 ```yaml
 apiVersion: aws-iam.redradrat.xyz/v1beta1
