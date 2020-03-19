@@ -74,7 +74,7 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	} else {
 		if containsString(policy.ObjectMeta.Finalizers, policiesFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			if err := DeletePolicy(&policy, ctx, r.Status(), log); err != nil {
+			if err := DeletePolicy(&policy, ctx, r.Client, r.Status(), log); err != nil {
 				// retry
 				log.Error(err, "unable to delete Policy")
 				return ctrl.Result{}, err

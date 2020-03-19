@@ -39,26 +39,13 @@ func reconcileAWSObject(obj AWSObject, ctx context.Context, sw client.StatusWrit
 	if obj.GetStatus().ARN != "" {
 		err = deleteAWSObject(obj, ctx, sw, log, deleteFunc)
 		if err != nil {
-			obj.GetStatus().Message = err.Error()
-			obj.GetStatus().State = iamv1beta1.ErrorSyncState
-			err = sw.Update(ctx, obj.RuntimeObject())
-			if err != nil {
-				return "", err
-			}
-			return "", err
+			return "", errWithStatus(obj, err, sw, ctx)
 		}
 	}
 
 	arn, err := reconcileFunc(session, obj.Metadata().Name)
 	if err != nil {
-		origerr := err
-		obj.GetStatus().Message = err.Error()
-		obj.GetStatus().State = iamv1beta1.ErrorSyncState
-		err = sw.Update(ctx, obj.RuntimeObject())
-		if err != nil {
-			return "", err
-		}
-		return "", origerr
+		return "", errWithStatus(obj, err, sw, ctx)
 	}
 
 	obj.GetStatus().ARN = arn
@@ -82,19 +69,23 @@ func deleteAWSObject(obj AWSObject, ctx context.Context, sw client.StatusWriter,
 
 	if arn != "" {
 		if err = deleteFunc(session, arn); err != nil {
-			obj.GetStatus().Message = err.Error()
-			obj.GetStatus().State = iamv1beta1.ErrorSyncState
-			err = sw.Update(ctx, obj.RuntimeObject())
-			if err != nil {
-				return err
-			}
-			return err
+			return errWithStatus(obj, err, sw, ctx)
 		}
 	}
 
 	log.Info(fmt.Sprintf("Deleted policy '%s'", arn))
 
 	return nil
+}
+
+func errWithStatus(obj AWSObject, err error, sw client.StatusWriter, ctx context.Context) error {
+	origerr := err
+	obj.GetStatus().Message = origerr.Error()
+	obj.GetStatus().State = iamv1beta1.ErrorSyncState
+	if err = sw.Update(ctx, obj.RuntimeObject()); err != nil {
+		return err
+	}
+	return origerr
 }
 
 func ReconcilePolicy(policy *iamv1beta1.Policy, ctx context.Context, sw client.StatusWriter, log logr.Logger) error {
@@ -127,7 +118,18 @@ func ReconcilePolicy(policy *iamv1beta1.Policy, ctx context.Context, sw client.S
 	return nil
 }
 
-func DeletePolicy(policy *iamv1beta1.Policy, ctx context.Context, sw client.StatusWriter, log logr.Logger) error {
+func DeletePolicy(policy *iamv1beta1.Policy, ctx context.Context, c client.Client, sw client.StatusWriter, log logr.Logger) error {
+	attachments := iamv1beta1.PolicyAttachmentList{}
+	if err := c.List(ctx, &attachments); err != nil {
+		return err
+	}
+	for _, att := range attachments.Items {
+		if att.Spec.PolicyReference.Name == policy.Name && att.Spec.PolicyReference.Namespace == policy.Namespace {
+			err := fmt.Errorf(fmt.Sprintf("cannot delete policy due to existing PolicyAttachment '%s/%s'", policy.Name, policy.Namespace))
+			return errWithStatus(policy, err, sw, ctx)
+		}
+	}
+
 	df := func(session awsclient.ConfigProvider, arn string) error {
 		_, err := iam.DeletePolicy(session, arn)
 		if iam.IsErrAndFound(err) {
@@ -137,8 +139,7 @@ func DeletePolicy(policy *iamv1beta1.Policy, ctx context.Context, sw client.Stat
 		return nil
 	}
 
-	err := deleteAWSObject(policy, ctx, sw, log, df)
-	if err != nil {
+	if err := deleteAWSObject(policy, ctx, sw, log, df); err != nil {
 		return err
 	}
 
@@ -152,18 +153,20 @@ func ReconcileRole(role *iamv1beta1.Role, ctx context.Context, c client.Client, 
 	var p iam.PolicyDocument
 	if len(role.Spec.AssumeRolePolicy) != 0 {
 		if !reflect.DeepEqual(role.Spec.AssumeRolePolicyReference, iamv1beta1.ResourceReference{}) {
-			return fmt.Errorf("only one specification of AssumeRolePolicy and AssumeRolePolicyReference is allowed")
+			err := fmt.Errorf("only one specification of AssumeRolePolicy and AssumeRolePolicyReference is allowed")
+			return errWithStatus(role, err, sw, ctx)
 		}
 		p = role.Marshal()
 	}
 	if len(role.Spec.AssumeRolePolicy) == 0 {
 		if reflect.DeepEqual(role.Spec.AssumeRolePolicyReference, iamv1beta1.ResourceReference{}) {
-			return fmt.Errorf("specification of either AssumeRolePolicy or AssumeRolePolicyReference is mandatory")
+			err := fmt.Errorf("specification of either AssumeRolePolicy or AssumeRolePolicyReference is mandatory")
+			return errWithStatus(role, err, sw, ctx)
 		}
 		var assumeRolePolicy iamv1beta1.AssumeRolePolicy
 		arpr := role.Spec.AssumeRolePolicyReference
 		if err := c.Get(ctx, client.ObjectKey{Name: arpr.Name, Namespace: arpr.Namespace}, &assumeRolePolicy); err != nil {
-			return err
+			return errWithStatus(role, err, sw, ctx)
 		}
 		p = assumeRolePolicy.Marshal()
 	}
@@ -187,7 +190,18 @@ func ReconcileRole(role *iamv1beta1.Role, ctx context.Context, c client.Client, 
 	return nil
 }
 
-func DeleteRole(role *iamv1beta1.Role, ctx context.Context, sw client.StatusWriter, log logr.Logger) error {
+func DeleteRole(role *iamv1beta1.Role, ctx context.Context, c client.Client, sw client.StatusWriter, log logr.Logger) error {
+	attachments := iamv1beta1.PolicyAttachmentList{}
+	if err := c.List(ctx, &attachments); err != nil {
+		return err
+	}
+	for _, att := range attachments.Items {
+		if att.Spec.TargetReference.Name == role.Name && att.Spec.TargetReference.Namespace == role.Namespace {
+			err := fmt.Errorf(fmt.Sprintf("cannot delete role due to existing PolicyAttachment '%s/%s'", role.Name, role.Namespace))
+			return errWithStatus(role, err, sw, ctx)
+		}
+	}
+
 	err := deleteAWSObject(role, ctx, sw, log, deleteRoleFunc)
 	if err != nil {
 		return err
@@ -208,6 +222,34 @@ func deleteRoleFunc(session awsclient.ConfigProvider, arn string) error {
 }
 
 func ReconcilePolicyAttachment(policyAttachment *iamv1beta1.PolicyAttachment, ctx context.Context, c client.Client, sw client.StatusWriter, log logr.Logger) error {
+	roles := iamv1beta1.RoleList{}
+	if err := c.List(ctx, &roles); err != nil {
+		return err
+	}
+	policies := iamv1beta1.PolicyList{}
+	if err := c.List(ctx, &policies); err != nil {
+		return err
+	}
+
+	foundrole := false
+	foundpolicy := false
+	for _, role := range roles.Items {
+		tarref := policyAttachment.Spec.TargetReference
+		if tarref.Name == role.Name && tarref.Namespace == role.Namespace {
+			foundrole = true
+		}
+	}
+	for _, policy := range policies.Items {
+		polref := policyAttachment.Spec.PolicyReference
+		if polref.Name == policy.Name && polref.Namespace == policy.Namespace {
+			foundpolicy = true
+		}
+	}
+	if !(foundrole == true && foundpolicy == true) {
+		err := fmt.Errorf(fmt.Sprintf("defined references do not exist for PolicyAttachment '%s/%s", policyAttachment.Name, policyAttachment.Namespace))
+		return errWithStatus(policyAttachment, err, sw, ctx)
+	}
+
 	rf := func(session awsclient.ConfigProvider, name string) (string, error) {
 
 		policyArn, targetArn, err := getPolicyAttachmentARNs(policyAttachment, ctx, c)

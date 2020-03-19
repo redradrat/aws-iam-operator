@@ -76,7 +76,7 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	} else {
 		if containsString(role.ObjectMeta.Finalizers, policiesFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			if err := DeleteRole(&role, ctx, r.Status(), log); err != nil {
+			if err := DeleteRole(&role, ctx, r.Client, r.Status(), log); err != nil {
 				// retry
 				log.Error(err, "unable to delete Role")
 				return ctrl.Result{}, err
