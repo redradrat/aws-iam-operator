@@ -44,7 +44,6 @@ func (p *Policy) Marshal() iam.PolicyDocument {
 		policyStatement = append(policyStatement, iam.StatementEntry{
 			Sid:       entry.Sid,
 			Effect:    entry.Effect.String(),
-			Principal: entry.Principal,
 			Action:    entry.Actions,
 			Resource:  entry.Resources,
 			Condition: entry.Conditions.Normalize(),

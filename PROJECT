@@ -1,13 +1,16 @@
 domain: redradrat.xyz
 repo: github.com/redradrat/aws-iam-operator
 resources:
-- group: iam
+- group: aws-iam
   kind: Role
   version: v1beta1
-- group: iam
+- group: aws-iam
   kind: Policy
   version: v1beta1
-- group: iam
+- group: aws-iam
   kind: PolicyAttachment
+  version: v1beta1
+- group: aws-iam
+  kind: AssumeRolePolicy
   version: v1beta1
 version: "2"

@@ -92,6 +92,15 @@ spec:
                     type: string
                 type: object
               type: array
+            assumeRolePolicyRef:
+              description: AssumeRolePolicyReference refrences a Policy resource to
+                use as AssumeRolePolicy
+              properties:
+                name:
+                  type: string
+                namespace:
+                  type: string
+              type: object
             createServiceAccount:
               description: CreateServiceAccount triggers the creation of an annotated
                 ServiceAccount for the created role

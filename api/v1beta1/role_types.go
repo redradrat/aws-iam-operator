@@ -23,10 +23,15 @@ import (
 // RoleSpec defines the desired state of Role
 type RoleSpec struct {
 
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	//
 	// AssumeRolePolicy holds the Trust Policy statement for the role
-	AssumeRolePolicy PolicyStatement `json:"assumeRolePolicy,omitempty"`
+	AssumeRolePolicy AssumeRolePolicyStatement `json:"assumeRolePolicy,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	//
+	// AssumeRolePolicyReference refrences a Policy resource to use as AssumeRolePolicy
+	AssumeRolePolicyReference ResourceReference `json:"assumeRolePolicyRef,omitempty"`
 
 	// CreateServiceAccount triggers the creation of an annotated ServiceAccount for the created role
 	CreateServiceAccount bool `json:"createServiceAccount,omitempty"`

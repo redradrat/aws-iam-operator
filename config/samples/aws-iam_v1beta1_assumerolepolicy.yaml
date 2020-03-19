@@ -1,12 +1,13 @@
 apiVersion: aws-iam.redradrat.xyz/v1beta1
-kind: Policy
+kind: AssumeRolePolicy
 metadata:
-  name: policy-sample
+  name: assumerolepolicy-sample
 spec:
   statement:
     - sid: someid
       effect: "Allow"
       principal:
+        "Federated": "blabla"
       actions:
         - "xxxx:DescribeSomething"
       resources:

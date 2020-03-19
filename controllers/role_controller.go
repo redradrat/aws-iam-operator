@@ -95,7 +95,7 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// RECONCILE THE RESOURCE
-	err = ReconcileRole(&role, ctx, r.Status(), log)
+	err = ReconcileRole(&role, ctx, r.Client, r.Status(), log)
 	if err != nil {
 		log.Error(err, "unable to reconcile Role")
 		return ctrl.Result{}, client.IgnoreNotFound(err)

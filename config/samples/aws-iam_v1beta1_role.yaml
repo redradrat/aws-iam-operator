@@ -12,4 +12,7 @@ spec:
       conditions:
         "StringEquals":
           "blablabla": "system:serviceaccount:kube-system:aws-cluster-autoscaler"
+  assumeRolePolicyRef:
+    name: policy
+    namespace: default
   createServiceAccount: true

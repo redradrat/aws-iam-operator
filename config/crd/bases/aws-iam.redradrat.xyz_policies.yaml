@@ -71,13 +71,6 @@ spec:
                     description: Effect holds the desired effect the statement should
                       ensure
                     type: string
-                  principal:
-                    additionalProperties:
-                      type: string
-                    description: Principal denotes an account, user, role, or federated
-                      user to which you would like to allow or deny access with a
-                      resource-based policy
-                    type: object
                   resources:
                     description: Resources denotes an a list of resources to which
                       the actions apply. If you do not set this value, then the resource

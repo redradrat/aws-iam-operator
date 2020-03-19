@@ -48,6 +48,30 @@ metadata:
     uid: ...
 ```
 
+## AssumeRolePolicy
+
+The AssumeRolePolicy is an auxiliary resource for the `Role` resource. It provides a way to define a single trust policy for multiple roles.
+
+```yaml
+apiVersion: aws-iam.redradrat.xyz/v1beta1
+kind: AssumeRolePolicy
+metadata:
+  name: assumerolepolicy-sample
+spec:
+  statement:
+    - sid: someid
+      effect: "Allow"
+      principal:
+        "Federated": "blabla"
+      actions:
+        - "xxxx:DescribeSomething"
+      resources:
+        - "*"
+      conditions:
+        "StringEquals":
+          "aws:SourceIp": "172.0.0.1"
+```
+
 ## Policy
 
 The Policy resource abstracts an AWS IAM Policy.
@@ -63,7 +87,6 @@ spec:
   statement:
     - sid: someid
       effect: "Allow"
-      principal:
       actions:
         - "xxxx:DescribeSomething"
       resources:

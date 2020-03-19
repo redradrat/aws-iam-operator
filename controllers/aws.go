@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -50,13 +51,14 @@ func reconcileAWSObject(obj AWSObject, ctx context.Context, sw client.StatusWrit
 
 	arn, err := reconcileFunc(session, obj.Metadata().Name)
 	if err != nil {
+		origerr := err
 		obj.GetStatus().Message = err.Error()
 		obj.GetStatus().State = iamv1beta1.ErrorSyncState
 		err = sw.Update(ctx, obj.RuntimeObject())
 		if err != nil {
 			return "", err
 		}
-		return "", err
+		return "", origerr
 	}
 
 	obj.GetStatus().ARN = arn
@@ -145,9 +147,28 @@ func DeletePolicy(policy *iamv1beta1.Policy, ctx context.Context, sw client.Stat
 	return nil
 }
 
-func ReconcileRole(role *iamv1beta1.Role, ctx context.Context, sw client.StatusWriter, log logr.Logger) error {
+func ReconcileRole(role *iamv1beta1.Role, ctx context.Context, c client.Client, sw client.StatusWriter, log logr.Logger) error {
+
+	var p iam.PolicyDocument
+	if len(role.Spec.AssumeRolePolicy) != 0 {
+		if !reflect.DeepEqual(role.Spec.AssumeRolePolicyReference, iamv1beta1.ResourceReference{}) {
+			return fmt.Errorf("only one specification of AssumeRolePolicy and AssumeRolePolicyReference is allowed")
+		}
+		p = role.Marshal()
+	}
+	if len(role.Spec.AssumeRolePolicy) == 0 {
+		if reflect.DeepEqual(role.Spec.AssumeRolePolicyReference, iamv1beta1.ResourceReference{}) {
+			return fmt.Errorf("specification of either AssumeRolePolicy or AssumeRolePolicyReference is mandatory")
+		}
+		var assumeRolePolicy iamv1beta1.AssumeRolePolicy
+		arpr := role.Spec.AssumeRolePolicyReference
+		if err := c.Get(ctx, client.ObjectKey{Name: arpr.Name, Namespace: arpr.Namespace}, &assumeRolePolicy); err != nil {
+			return err
+		}
+		p = assumeRolePolicy.Marshal()
+	}
+
 	rf := func(session awsclient.ConfigProvider, name string) (string, error) {
-		p := role.Marshal()
 		res, err := iam.CreateRole(session, role.Name, p)
 		if err != nil {
 			return "", err

@@ -58,12 +58,6 @@ type PolicyStatementEntry struct {
 	// Effect holds the desired effect the statement should ensure
 	Effect PolicyStatementEffect `json:"effect,omitempty"`
 
-	//+kubebuilder:validation:Optional
-	//
-	// Principal denotes an account, user, role, or federated user to which you would
-	// like to allow or deny access with a resource-based policy
-	Principal map[string]string `json:"principal,omitempty"`
-
 	//+kubebuilder:validation:Required
 	//
 	// Actions holds the desired effect the statement should ensure
