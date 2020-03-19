@@ -2,7 +2,34 @@
 
 An operator that enables AWS IAM management via Kubernetes custom resources.
 
-## Role
+## Installation
+
+**CRD**
+
+The CRDs can easily be applied to the cluster with kubectl:
+```shell script
+kubectl kustomize 'github.com/redradrat/aws-iam-operator/config/crd?ref=master' | kubectl apply -f -
+```
+or for a specific GITREF (e.g. branch, tag) with:
+```shell script
+kubectl kustomize 'github.com/redradrat/aws-iam-operator/config/crd?ref=GITREF' | kubectl apply -f -
+```
+
+**Controllers**
+
+The controller deployment can be applied to the cluster with kuebctl:
+```shell script
+kubectl kustomize github.com/redradrat/aws-iam-operator/config/manager?ref=master | kubectl apply -f -
+```
+
+## Custom Resources
+
+* [Role](#Role)
+* [AssumeRolePolicy](#AssumeRolePolicy)
+* [Policy](#Policy)
+* [PolicyAttachment](#PolicyAttachment)
+
+### Role
 
 The Role resource abstracts an AWS IAM Role. 
 
@@ -48,7 +75,7 @@ metadata:
     uid: ...
 ```
 
-## AssumeRolePolicy
+### AssumeRolePolicy
 
 The AssumeRolePolicy is an auxiliary resource for the `Role` resource. It provides a way to define a single trust policy for multiple roles.
 
@@ -72,7 +99,7 @@ spec:
           "aws:SourceIp": "172.0.0.1"
 ```
 
-## Policy
+### Policy
 
 The Policy resource abstracts an AWS IAM Policy.
 
@@ -96,7 +123,7 @@ spec:
           "aws:SourceIp": "172.0.0.1"
 ```
 
-## PolicyAssignment
+### PolicyAttachment
 
 The Policy resource abstracts the attachment of an AWS IAM Policy to another AWS IAM Resource e.g. Role (in future maybe User, Groups, etc.).
 
