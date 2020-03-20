@@ -1,5 +1,7 @@
 # AWS IAM Operator
 
+[![Join the chat at https://gitter.im/aws-iam-operator/community](https://badges.gitter.im/aws-iam-operator/community.svg)](https://gitter.im/aws-iam-operator/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 An operator that enables AWS IAM management via Kubernetes custom resources.
 
 ## Installation
