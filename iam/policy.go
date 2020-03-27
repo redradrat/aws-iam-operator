@@ -7,12 +7,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 )
 
 func CreatePolicy(session client.ConfigProvider, pn string, pd PolicyDocument) (*iam.CreatePolicyOutput, error) {
 	// Create a IAM service client.
 	svc := iam.New(session)
 
+	return CreatePolicyWithoutSvc(svc, session, pn, pd)
+}
+
+func CreatePolicyWithoutSvc(svc iamiface.IAMAPI, session client.ConfigProvider, pn string, pd PolicyDocument) (*iam.CreatePolicyOutput, error) {
 	b, err := json.Marshal(&pd)
 	if err != nil {
 		return nil, err
@@ -33,6 +38,10 @@ func DeletePolicy(session client.ConfigProvider, arn string) (*iam.DeletePolicyO
 	// Create a IAM service client.
 	svc := iam.New(session)
 
+	return DeletePolicyWithoutSvc(svc, session, arn)
+}
+
+func DeletePolicyWithoutSvc(svc iamiface.IAMAPI, session client.ConfigProvider, arn string) (*iam.DeletePolicyOutput, error) {
 	res, err := svc.DeletePolicy(&iam.DeletePolicyInput{
 		PolicyArn: &arn,
 	})
