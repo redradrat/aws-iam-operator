@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
+	"github.com/redradrat/aws-iam-operator/aws"
 )
 
 // RoleReconciler reconciles a Role object
@@ -51,7 +52,7 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// return if only status/metadata updated
-	if role.Status.ObservedGeneration == role.ObjectMeta.Generation && role.Status.State == iamv1beta1.OkSyncState {
+	if role.Status.ObservedGeneration == role.ObjectMeta.Generation && role.Status.State == aws.OkSyncState {
 		return ctrl.Result{}, nil
 	} else {
 		role.Status.ObservedGeneration = role.ObjectMeta.Generation

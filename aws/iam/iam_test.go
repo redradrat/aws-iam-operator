@@ -16,7 +16,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/redradrat/aws-iam-operator/api/v1beta1"
-	iam "github.com/redradrat/aws-iam-operator/iam"
+	iam "github.com/redradrat/aws-iam-operator/aws/iam"
 )
 
 ///////////

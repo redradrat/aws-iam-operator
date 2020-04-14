@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
+	"github.com/redradrat/aws-iam-operator/aws"
 )
 
 // PolicyReconciler reconciles a Policy object
@@ -49,7 +50,7 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// return if only status/metadata updated
-	if policy.Status.ObservedGeneration == policy.ObjectMeta.Generation && policy.Status.State == iamv1beta1.OkSyncState {
+	if policy.Status.ObservedGeneration == policy.ObjectMeta.Generation && policy.Status.State == aws.OkSyncState {
 		return ctrl.Result{}, nil
 	} else {
 		policy.Status.ObservedGeneration = policy.ObjectMeta.Generation
