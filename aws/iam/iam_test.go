@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	awsarn "github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/session"
 	awsiam "github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
@@ -48,7 +49,7 @@ func (m *mockIAMClient) CreatePolicy(input *awsiam.CreatePolicyInput) (*awsiam.C
 func (m *mockIAMClient) DeletePolicy(input *awsiam.DeletePolicyInput) (*awsiam.DeletePolicyOutput, error) {
 	// Check if input values are still as we want them to be
 	assert.True(m.t, arn.IsARN(*input.PolicyArn))
-	assert.Equal(m.t, input.PolicyArn, aws.String(getMockPolicyArn()))
+	assert.Equal(m.t, input.PolicyArn, aws.String(getMockPolicyArn().String()))
 
 	return &awsiam.DeletePolicyOutput{}, nil
 }
@@ -67,15 +68,16 @@ func TestCreatePolicyWithoutSvc(t *testing.T) {
 	assert.NoError(t, err)
 
 	pd := getMockPolicy().Marshal()
-	pn := "thisismypolicy"
+	polName := "thisismypolicy"
+	polDesc := "description"
 	b, err := json.Marshal(&pd)
 	assert.NoError(t, err)
-	out, err := iam.CreatePolicyWithoutSvc(mockSvc, session, pn, pd)
+	out, err := iam.CreatePolicyWithoutSvc(mockSvc, session, polName, polDesc, pd)
 	assert.True(t, reflect.DeepEqual(getMockCreatePolicyOutput(&awsiam.CreatePolicyInput{
 		Description:    nil,
 		Path:           nil,
 		PolicyDocument: aws.String(string(b)),
-		PolicyName:     aws.String(pn),
+		PolicyName:     aws.String(polName),
 	}), out))
 	assert.Nil(t, out.Policy.Description)
 	assert.Nil(t, out.Policy.Path)
@@ -100,15 +102,16 @@ func TestDeletePolicyWithoutSvc(t *testing.T) {
 // HELPERS //
 /////////////
 
-func getMockPolicyArn() string {
-	return fmt.Sprintf("arn:aws:iam::123456789012:policy/%s", MockPolicyName)
+func getMockPolicyArn() awsarn.ARN {
+	arn, _ := awsarn.Parse(fmt.Sprintf("arn:aws:iam::123456789012:policy/%s", MockPolicyName))
+	return arn
 }
 
 func getMockCreatePolicyOutput(input *awsiam.CreatePolicyInput) *awsiam.CreatePolicyOutput {
 	date := time.Date(2016, 11, 5, 7, 50, 22, 8, time.UTC)
 	return &awsiam.CreatePolicyOutput{
 		Policy: &awsiam.Policy{
-			Arn:                           aws.String(getMockPolicyArn()),
+			Arn:                           aws.String(getMockPolicyArn().String()),
 			AttachmentCount:               aws.Int64(0),
 			CreateDate:                    aws.Time(date),
 			DefaultVersionId:              nil,
