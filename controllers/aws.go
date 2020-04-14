@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go/aws"
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/go-logr/logr"
@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
-	"github.com/redradrat/aws-iam-operator/iam"
+	"github.com/redradrat/aws-iam-operator/aws/iam"
 )
 
 type AWSObject interface {
@@ -353,8 +353,8 @@ func getPolicyAttachmentARNs(policyAttachment *iamv1beta1.PolicyAttachment, ctx 
 }
 
 func startReconciliation() (*session.Session, error) {
-	session, err := session.NewSession(&aws.Config{
-		Region: aws.String("eu-west-1")},
+	session, err := session.NewSession(&awssdk.Config{
+		Region: awssdk.String("eu-west-1")},
 	)
 	if err != nil {
 		return nil, err

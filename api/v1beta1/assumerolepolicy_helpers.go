@@ -4,7 +4,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/redradrat/aws-iam-operator/iam"
+	"github.com/redradrat/aws-iam-operator/aws/iam"
 )
 
 func (arp *AssumeRolePolicy) RuntimeObject() runtime.Object {
