@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
-	"github.com/redradrat/aws-iam-operator/aws"
+	"github.com/redradrat/aws-iam-operator/aws/iam"
 )
 
 // PolicyReconciler reconciles a Policy object
@@ -50,7 +51,7 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// return if only status/metadata updated
-	if policy.Status.ObservedGeneration == policy.ObjectMeta.Generation && policy.Status.State == aws.OkSyncState {
+	if policy.Status.ObservedGeneration == policy.ObjectMeta.Generation && policy.Status.State == iamv1beta1.OkSyncState {
 		return ctrl.Result{}, nil
 	} else {
 		policy.Status.ObservedGeneration = policy.ObjectMeta.Generation
@@ -59,6 +60,9 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// the finalizer for deleting the actual aws resources
 	policiesFinalizer := "policy.aws-iam.redradrat.xyz"
+
+	// now let's instantiate our PolicyInstance
+	ins := iam.NewPolicyInstance(policy.Name, policy.Spec.Description, policy.Marshal())
 
 	// Check Deletion and finalizer
 	if policy.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -75,7 +79,7 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	} else {
 		if containsString(policy.ObjectMeta.Finalizers, policiesFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			if err := DeletePolicy(&policy, ctx, r.Client, r.Status(), log); err != nil {
+			if err := DeleteAWSObject(&policy, ins, PreDeletePolicy, r.Client, ctx); err != nil {
 				// retry
 				log.Error(err, "unable to delete Policy")
 				return ctrl.Result{}, err
@@ -94,11 +98,21 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// RECONCILE THE RESOURCE
-	err = ReconcilePolicy(&policy, ctx, r.Status(), log)
-	if err != nil {
-		log.Error(err, "unable to reconcile Policy")
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+
+	// if there is already an ARN in our status, then we recreate the object completely
+	// (because AWS only supports description updates)
+	if policy.Status.ARN != "" {
+		if err := DeleteAWSObject(&policy, ins, PreDeletePolicy, r.Client, ctx); err != nil {
+			log.Error(err, "error while deleting Policy during reconciliation")
+			return ctrl.Result{}, errWithStatus(&policy, client.IgnoreNotFound(err), r.Status(), ctx)
+		}
 	}
+	if err := CreateAWSObject(&policy, ins, EmptyPreFunc, r.Client, ctx, r.Status()); err != nil {
+		log.Error(err, "error while creating Policy during reconciliation")
+		return ctrl.Result{}, errWithStatus(&policy, client.IgnoreNotFound(err), r.Status(), ctx)
+	}
+
+	log.Info(fmt.Sprintf("Created Policy '%s'", policy.Status.ARN))
 
 	return ctrl.Result{}, nil
 }
@@ -107,4 +121,18 @@ func (r *PolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&iamv1beta1.Policy{}).
 		Complete(r)
+}
+
+func PreDeletePolicy(obj AWSObject, c client.Client, ctx context.Context) error {
+	attachments := iamv1beta1.PolicyAttachmentList{}
+	if err := c.List(ctx, &attachments); err != nil {
+		return err
+	}
+	for _, att := range attachments.Items {
+		if att.Spec.PolicyReference.Name == obj.Metadata().Name && att.Spec.PolicyReference.Namespace == obj.Metadata().Namespace {
+			err := fmt.Errorf(fmt.Sprintf("cannot delete policy due to existing PolicyAttachment '%s/%s'", obj.Metadata().Name, obj.Metadata().Namespace))
+			return err
+		}
+	}
+	return nil
 }

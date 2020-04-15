@@ -18,8 +18,12 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 
 	"github.com/go-logr/logr"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
-	"github.com/redradrat/aws-iam-operator/aws"
+	"github.com/redradrat/aws-iam-operator/aws/iam"
 )
 
 // RoleReconciler reconciles a Role object
@@ -52,7 +56,7 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// return if only status/metadata updated
-	if role.Status.ObservedGeneration == role.ObjectMeta.Generation && role.Status.State == aws.OkSyncState {
+	if role.Status.ObservedGeneration == role.ObjectMeta.Generation && role.Status.State == iamv1beta1.OkSyncState {
 		return ctrl.Result{}, nil
 	} else {
 		role.Status.ObservedGeneration = role.ObjectMeta.Generation
@@ -61,6 +65,15 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// the finalizer for deleting the actual aws resources
 	policiesFinalizer := "role.aws-iam.redradrat.xyz"
+
+	// get the policy doc
+	polDoc, err := getPolicyDoc(&role, r.Client, ctx)
+	if err != nil {
+		return ctrl.Result{}, errWithStatus(&role, client.IgnoreNotFound(err), r.Status(), ctx)
+	}
+
+	// new role instance
+	ins := iam.NewRoleInstance(role.Name, role.Spec.Description, polDoc)
 
 	// Check Deletion and finalizer
 	if role.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -77,7 +90,7 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	} else {
 		if containsString(role.ObjectMeta.Finalizers, policiesFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			if err := DeleteRole(&role, ctx, r.Client, r.Status(), log); err != nil {
+			if err := DeleteAWSObject(&role, ins, PreDeleteRole, r.Client, ctx); err != nil {
 				// retry
 				log.Error(err, "unable to delete Role")
 				return ctrl.Result{}, err
@@ -96,11 +109,21 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// RECONCILE THE RESOURCE
-	err = ReconcileRole(&role, ctx, r.Client, r.Status(), log)
-	if err != nil {
-		log.Error(err, "unable to reconcile Role")
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+
+	// if there is already an ARN in our status, then we recreate the object completely
+	// (because AWS only supports description updates)
+	if role.Status.ARN != "" {
+		if err := DeleteAWSObject(&role, ins, PreDeleteRole, r.Client, ctx); err != nil {
+			log.Error(err, "error while deleting Role during reconciliation")
+			return ctrl.Result{}, errWithStatus(&role, client.IgnoreNotFound(err), r.Status(), ctx)
+		}
 	}
+	if err := CreateAWSObject(&role, ins, EmptyPreFunc, r.Client, ctx, r.Status()); err != nil {
+		log.Error(err, "error while creating Role during reconciliation")
+		return ctrl.Result{}, errWithStatus(&role, client.IgnoreNotFound(err), r.Status(), ctx)
+	}
+
+	log.Info(fmt.Sprintf("Created Role '%s'", role.Status.ARN))
 
 	truevar := true
 	gvk, err := apiutil.GVKForObject(&role, r.Scheme)
@@ -108,7 +131,6 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	// Create ServiceAccount for Role
 	ownerRef := metav1.OwnerReference{
 		APIVersion:         gvk.GroupVersion().String(),
 		Kind:               gvk.Kind,
@@ -117,6 +139,7 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		BlockOwnerDeletion: &truevar,
 		Controller:         &truevar,
 	}
+	// Create ServiceAccount for Role
 	if err = createRoleServiceAccount(role, ctx, r.Client, ownerRef); err != nil {
 		log.Error(err, "unable to create ServiceAccount for Role")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -129,4 +152,65 @@ func (r *RoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&iamv1beta1.Role{}).
 		Complete(r)
+}
+
+func getPolicyDoc(role *iamv1beta1.Role, c client.Client, ctx context.Context) (iam.PolicyDocument, error) {
+	var p iam.PolicyDocument
+	if len(role.Spec.AssumeRolePolicy) != 0 {
+		if !reflect.DeepEqual(role.Spec.AssumeRolePolicyReference, iamv1beta1.ResourceReference{}) {
+			err := fmt.Errorf("only one specification of AssumeRolePolicy and AssumeRolePolicyReference is allowed")
+			return p, err
+		}
+		p = role.Marshal()
+	}
+	if len(role.Spec.AssumeRolePolicy) == 0 {
+		if reflect.DeepEqual(role.Spec.AssumeRolePolicyReference, iamv1beta1.ResourceReference{}) {
+			err := fmt.Errorf("specification of either AssumeRolePolicy or AssumeRolePolicyReference is mandatory")
+			return p, err
+		}
+		var assumeRolePolicy iamv1beta1.AssumeRolePolicy
+		arpr := role.Spec.AssumeRolePolicyReference
+		if err := c.Get(ctx, client.ObjectKey{Name: arpr.Name, Namespace: arpr.Namespace}, &assumeRolePolicy); err != nil {
+			return p, err
+		}
+		p = assumeRolePolicy.Marshal()
+	}
+	return p, nil
+}
+
+func createRoleServiceAccount(role iamv1beta1.Role, ctx context.Context, client client.Client, ownerRef metav1.OwnerReference) error {
+	if role.Spec.CreateServiceAccount {
+		sa := v1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      role.Name,
+				Namespace: role.Namespace,
+				Labels:    role.Labels,
+				Annotations: map[string]string{
+					"eks.amazonaws.com/role-arn": role.Status.ARN,
+				},
+				OwnerReferences: []metav1.OwnerReference{ownerRef},
+			},
+		}
+
+		if err := client.Create(ctx, &sa); err != nil && !errors.IsAlreadyExists(err) {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+func PreDeleteRole(obj AWSObject, c client.Client, ctx context.Context) error {
+	attachments := iamv1beta1.PolicyAttachmentList{}
+	if err := c.List(ctx, &attachments); err != nil {
+		return err
+	}
+	for _, att := range attachments.Items {
+		if att.Spec.TargetReference.Name == obj.Metadata().Name && att.Spec.TargetReference.Namespace == obj.Metadata().Namespace {
+			err := fmt.Errorf(fmt.Sprintf("cannot delete role due to existing PolicyAttachment '%s/%s'", obj.Metadata().Name, obj.Metadata().Namespace))
+			return err
+		}
+	}
+	return nil
 }

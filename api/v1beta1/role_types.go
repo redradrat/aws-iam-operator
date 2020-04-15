@@ -30,11 +30,16 @@ type RoleSpec struct {
 
 	// +kubebuilder:validation:Optional
 	//
-	// AssumeRolePolicyReference refrences a Policy resource to use as AssumeRolePolicy
+	// AssumeRolePolicyReference references a Policy resource to use as AssumeRolePolicy
 	AssumeRolePolicyReference ResourceReference `json:"assumeRolePolicyRef,omitempty"`
 
 	// CreateServiceAccount triggers the creation of an annotated ServiceAccount for the created role
 	CreateServiceAccount bool `json:"createServiceAccount,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	//
+	// Description holds the description string for the Role
+	Description string `json:"description,omitempty"`
 }
 
 // +kubebuilder:object:root=true
