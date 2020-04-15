@@ -18,14 +18,16 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
+	awsarn "github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
-	"github.com/redradrat/aws-iam-operator/aws"
+	"github.com/redradrat/aws-iam-operator/aws/iam"
 )
 
 // PolicyAssignmentReconciler reconciles a PolicyAssignment object
@@ -50,7 +52,7 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	// return if only status/metadata updated
-	if policyattachment.Status.ObservedGeneration == policyattachment.ObjectMeta.Generation && policyattachment.Status.State == aws.OkSyncState {
+	if policyattachment.Status.ObservedGeneration == policyattachment.ObjectMeta.Generation && policyattachment.Status.State == iamv1beta1.OkSyncState {
 		return ctrl.Result{}, nil
 	} else {
 		policyattachment.Status.ObservedGeneration = policyattachment.ObjectMeta.Generation
@@ -59,6 +61,21 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	// the finalizer for deleting the actual aws resources
 	policyAttachmentFinalizer := "policyattachment.aws-iam.redradrat.xyz"
+
+	// first let's get the ARNs from the referenced resources in the spec
+	policyArn, targetArn, err := getPolicyAttachmentARNs(&policyattachment, ctx, r.Client)
+	if err != nil {
+		return ctrl.Result{}, errWithStatus(&policyattachment, client.IgnoreNotFound(err), r.Status(), ctx)
+	}
+
+	// now we need to translate the specified target resource in the CR to an IAM AttachmentType
+	attachType, err := policyattachment.GetAttachmentType()
+	if err != nil {
+		return ctrl.Result{}, errWithStatus(&policyattachment, client.IgnoreNotFound(err), r.Status(), ctx)
+	}
+
+	// now let's instantiate our PolicyAttachmentInstance
+	ins := iam.NewPolicyAttachmentInstance(policyArn, attachType, targetArn)
 
 	// Check Deletion and finalizer
 	if policyattachment.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -75,7 +92,7 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	} else {
 		if containsString(policyattachment.ObjectMeta.Finalizers, policyAttachmentFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			if err := DeletePolicyAttachment(&policyattachment, ctx, r.Client, r.Status(), log); err != nil {
+			if err := DeleteAWSObject(&policyattachment, ins, EmptyPreFunc, r.Client, ctx); err != nil {
 				// retry
 				log.Error(err, "unable to delete PolicyAttachment")
 				return ctrl.Result{}, err
@@ -94,17 +111,105 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	// RECONCILE THE RESOURCE
-	err = ReconcilePolicyAttachment(&policyattachment, ctx, r.Client, r.Status(), log)
-	if err != nil {
-		log.Error(err, "unable to reconcile PolicyAttachment")
-		return ctrl.Result{}, err
+
+	// if there is already an ARN in our status, then we remove the PolicyAttachment from that ARN:
+	// 	1) 	A user could have changed the TargetReference,
+	//		so we need to remove it from the old status ARN
+	//
+	// 	2) 	AWS doesn't support updates of attachments,
+	//		so even if the target is the same as the ARN, we need to recreate
+	if policyattachment.Status.ARN != "" {
+		if err := DeleteAWSObject(&policyattachment, ins, EmptyPreFunc, r.Client, ctx); err != nil {
+			log.Error(err, "error while deleting PolicyAttachment during reconciliation")
+			return ctrl.Result{}, errWithStatus(&policyattachment, client.IgnoreNotFound(err), r.Status(), ctx)
+		}
+	}
+	if err := CreateAWSObject(&policyattachment, ins, EmptyPreFunc, r.Client, ctx, r.Status()); err != nil {
+		log.Error(err, "error while creating PolicyAttachment during reconciliation")
+		return ctrl.Result{}, errWithStatus(&policyattachment, client.IgnoreNotFound(err), r.Status(), ctx)
 	}
 
+	log.Info(fmt.Sprintf("Created PolicyAttachment on target '%s'", policyattachment.Status.ARN))
+
 	return ctrl.Result{}, nil
+}
+
+func checkPolicyAttachmentRefs(policyAttachment *iamv1beta1.PolicyAttachment, c client.Client, ctx context.Context) error {
+	roles := iamv1beta1.RoleList{}
+	if err := c.List(ctx, &roles); err != nil {
+		return err
+	}
+	policies := iamv1beta1.PolicyList{}
+	if err := c.List(ctx, &policies); err != nil {
+		return err
+	}
+
+	foundrole := false
+	foundpolicy := false
+	for _, role := range roles.Items {
+		tarref := policyAttachment.Spec.TargetReference
+		if tarref.Name == role.Name && tarref.Namespace == role.Namespace {
+			foundrole = true
+		}
+	}
+	for _, policy := range policies.Items {
+		polref := policyAttachment.Spec.PolicyReference
+		if polref.Name == policy.Name && polref.Namespace == policy.Namespace {
+			foundpolicy = true
+		}
+	}
+	if !(foundrole == true && foundpolicy == true) {
+		err := fmt.Errorf(fmt.Sprintf("defined references do not exist for PolicyAttachment '%s/%s", policyAttachment.Name, policyAttachment.Namespace))
+		return err
+	}
+
+	return nil
 }
 
 func (r *PolicyAttachmentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&iamv1beta1.PolicyAttachment{}).
 		Complete(r)
+}
+
+func getPolicyAttachmentARNs(policyAttachment *iamv1beta1.PolicyAttachment, ctx context.Context, c client.Client) (awsarn.ARN, awsarn.ARN, error) {
+	var policyArn awsarn.ARN
+	var targetArn awsarn.ARN
+
+	if err := checkPolicyAttachmentRefs(policyAttachment, c, ctx); err != nil {
+		return policyArn, targetArn, err
+	}
+
+	polref := policyAttachment.Spec.PolicyReference
+	tarref := policyAttachment.Spec.TargetReference
+	policy := iamv1beta1.Policy{}
+	if err := c.Get(ctx, client.ObjectKey{Name: polref.Name, Namespace: polref.Namespace}, &policy); err != nil {
+		return policyArn, targetArn, err
+	}
+
+	if policy.Status.ARN == "" {
+		return policyArn, targetArn, fmt.Errorf("ARN is empty in status for policy reference")
+	}
+	policyArn, err := awsarn.Parse(policy.Status.ARN)
+	if err != nil {
+		return policyArn, targetArn, err
+	}
+
+	switch policyAttachment.Spec.TargetReference.Type {
+	case iamv1beta1.RoleTargetType:
+		role := iamv1beta1.Role{}
+		if err := c.Get(ctx, client.ObjectKey{Name: tarref.Name, Namespace: tarref.Namespace}, &role); err != nil {
+			return policyArn, targetArn, err
+		}
+		if role.Status.ARN == "" {
+			return policyArn, targetArn, fmt.Errorf("ARN is empty in status for target reference")
+		}
+		targetArn, err := awsarn.Parse(role.Status.ARN)
+		if err != nil {
+			return policyArn, targetArn, err
+		}
+
+	}
+
+	return policyArn, targetArn, nil
 }

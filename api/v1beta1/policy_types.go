@@ -85,6 +85,11 @@ type PolicySpec struct {
 	//
 	// Statements holds the list of all the policy statement entries
 	Statement PolicyStatement `json:"statement,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	//
+	// Description holds the description string for the Role
+	Description string `json:"description,omitempty"`
 }
 
 // +kubebuilder:object:root=true

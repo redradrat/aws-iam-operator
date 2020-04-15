@@ -102,8 +102,8 @@ type PolicyInstance struct {
 	PolicyDocument PolicyDocument
 }
 
-func NewPolicyInstance(policyRef awsarn.ARN, attType AttachmentType, ref awsarn.ARN) *PolicyAttachmentInstance {
-	return &PolicyAttachmentInstance{PolicyRef: policyRef, Ref: ref, Type: attType}
+func NewPolicyInstance(name, description string, policyDoc PolicyDocument) *PolicyInstance {
+	return &PolicyInstance{Name: name, Description: description, PolicyDocument: policyDoc}
 }
 
 //  Create attaches the referenced policy on referenced target type and returns the target ARN
