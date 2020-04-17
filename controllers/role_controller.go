@@ -22,6 +22,8 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	"github.com/redradrat/cloud-objects/aws"
+	"github.com/redradrat/cloud-objects/aws/iam"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
-	"github.com/redradrat/aws-iam-operator/aws/iam"
 )
 
 // RoleReconciler reconciles a Role object
@@ -66,14 +67,31 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// the finalizer for deleting the actual aws resources
 	policiesFinalizer := "role.aws-iam.redradrat.xyz"
 
+	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
+	iamsvc, err := IAMService()
+	if err != nil {
+		return ctrl.Result{}, errWithStatus(&role, err, r.Status(), ctx)
+	}
+
 	// get the policy doc
 	polDoc, err := getPolicyDoc(&role, r.Client, ctx)
 	if err != nil {
-		return ctrl.Result{}, errWithStatus(&role, client.IgnoreNotFound(err), r.Status(), ctx)
+		return ctrl.Result{}, errWithStatus(&role, err, r.Status(), ctx)
 	}
 
 	// new role instance
-	ins := iam.NewRoleInstance(role.Name, role.Spec.Description, polDoc)
+	var ins *iam.RoleInstance
+	if role.Status.ARN != "" {
+		parsedArn, err := aws.ARNify(role.Status.ARN)
+		if err != nil {
+			return ctrl.Result{}, errWithStatus(&role, fmt.Errorf("ARN in Role status is not valid/parsable"), r.Status(), ctx)
+		}
+		ins = iam.NewExistingRoleInstance(role.Name, role.Spec.Description, polDoc, parsedArn[len(parsedArn)-1])
+	} else {
+		ins = iam.NewRoleInstance(role.Name, role.Spec.Description, polDoc)
+	}
+
+	cleanupFunc := roleCleanup(r, ctx, role)
 
 	// Check Deletion and finalizer
 	if role.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -90,8 +108,13 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	} else {
 		if containsString(role.ObjectMeta.Finalizers, policiesFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			if err := DeleteAWSObject(&role, ins, PreDeleteRole, r.Client, ctx); err != nil {
-				// retry
+
+			// delete the actual AWS Object and pass the cleanup function
+			statusUpdater, err := DeleteAWSObject(iamsvc, ins, cleanupFunc)
+			// we got a StatusUpdater function returned... let's execute it
+			statusUpdater(ins, &role, ctx, r.Status(), log)
+			if err != nil {
+				// we had an error during AWS Object deletion... so we return here to retry
 				log.Error(err, "unable to delete Role")
 				return ctrl.Result{}, err
 			}
@@ -113,14 +136,22 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// if there is already an ARN in our status, then we recreate the object completely
 	// (because AWS only supports description updates)
 	if role.Status.ARN != "" {
-		if err := DeleteAWSObject(&role, ins, PreDeleteRole, r.Client, ctx); err != nil {
+		// delete the actual AWS Object and pass the cleanup function
+		statusUpdater, err := DeleteAWSObject(iamsvc, ins, cleanupFunc)
+		// we got a StatusUpdater function returned... let's execute it
+		statusUpdater(ins, &role, ctx, r.Status(), log)
+		if err != nil {
+			// we had an error during AWS Object deletion... so we return here to retry
 			log.Error(err, "error while deleting Role during reconciliation")
-			return ctrl.Result{}, errWithStatus(&role, client.IgnoreNotFound(err), r.Status(), ctx)
+			return ctrl.Result{}, err
 		}
 	}
-	if err := CreateAWSObject(&role, ins, EmptyPreFunc, r.Client, ctx, r.Status()); err != nil {
+
+	statusUpdater, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
+	statusUpdater(ins, &role, ctx, r.Status(), log)
+	if err != nil {
 		log.Error(err, "error while creating Role during reconciliation")
-		return ctrl.Result{}, errWithStatus(&role, client.IgnoreNotFound(err), r.Status(), ctx)
+		return ctrl.Result{}, err
 	}
 
 	log.Info(fmt.Sprintf("Created Role '%s'", role.Status.ARN))
@@ -146,6 +177,23 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// Returns a function, that does everything necessary before we can delete our actual Role (cleanup)
+func roleCleanup(r *RoleReconciler, ctx context.Context, role iamv1beta1.Role) func() error {
+	return func() error {
+		attachments := iamv1beta1.PolicyAttachmentList{}
+		if err := r.List(ctx, &attachments); err != nil {
+			return err
+		}
+		for _, att := range attachments.Items {
+			if att.Spec.PolicyReference.Name == role.Name && att.Spec.PolicyReference.Namespace == role.Namespace {
+				err := fmt.Errorf(fmt.Sprintf("cannot delete policy due to existing PolicyAttachment '%s/%s'", role.Name, role.Namespace))
+				return err
+			}
+		}
+		return nil
+	}
 }
 
 func (r *RoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -198,19 +246,5 @@ func createRoleServiceAccount(role iamv1beta1.Role, ctx context.Context, client 
 
 	}
 
-	return nil
-}
-
-func PreDeleteRole(obj AWSObject, c client.Client, ctx context.Context) error {
-	attachments := iamv1beta1.PolicyAttachmentList{}
-	if err := c.List(ctx, &attachments); err != nil {
-		return err
-	}
-	for _, att := range attachments.Items {
-		if att.Spec.TargetReference.Name == obj.Metadata().Name && att.Spec.TargetReference.Namespace == obj.Metadata().Namespace {
-			err := fmt.Errorf(fmt.Sprintf("cannot delete role due to existing PolicyAttachment '%s/%s'", obj.Metadata().Name, obj.Metadata().Namespace))
-			return err
-		}
-	}
 	return nil
 }

@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/redradrat/aws-iam-operator/aws/iam"
+	"github.com/redradrat/cloud-objects/aws/iam"
 )
 
 func (pa *PolicyAttachment) GetStatus() *AWSObjectStatus {

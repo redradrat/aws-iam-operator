@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
-	"github.com/redradrat/aws-iam-operator/aws/iam"
+	"github.com/redradrat/cloud-objects/aws/iam"
 )
 
 // PolicyAssignmentReconciler reconciles a PolicyAssignment object
@@ -65,13 +65,19 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// first let's get the ARNs from the referenced resources in the spec
 	policyArn, targetArn, err := getPolicyAttachmentARNs(&policyattachment, ctx, r.Client)
 	if err != nil {
-		return ctrl.Result{}, errWithStatus(&policyattachment, client.IgnoreNotFound(err), r.Status(), ctx)
+		return ctrl.Result{}, errWithStatus(&policyattachment, err, r.Status(), ctx)
 	}
 
 	// now we need to translate the specified target resource in the CR to an IAM AttachmentType
 	attachType, err := policyattachment.GetAttachmentType()
 	if err != nil {
-		return ctrl.Result{}, errWithStatus(&policyattachment, client.IgnoreNotFound(err), r.Status(), ctx)
+		return ctrl.Result{}, errWithStatus(&policyattachment, err, r.Status(), ctx)
+	}
+
+	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
+	iamsvc, err := IAMService()
+	if err != nil {
+		return ctrl.Result{}, errWithStatus(&policyattachment, err, r.Status(), ctx)
 	}
 
 	// now let's instantiate our PolicyAttachmentInstance
@@ -92,8 +98,13 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	} else {
 		if containsString(policyattachment.ObjectMeta.Finalizers, policyAttachmentFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
-			if err := DeleteAWSObject(&policyattachment, ins, EmptyPreFunc, r.Client, ctx); err != nil {
-				// retry
+
+			// delete the actual AWS Object and pass the cleanup function
+			statusUpdater, err := DeleteAWSObject(iamsvc, ins, DoNothingPreFunc)
+			// we got a StatusUpdater function returned... let's execute it
+			statusUpdater(ins, &policyattachment, ctx, r.Status(), log)
+			if err != nil {
+				// we had an error during AWS Object deletion... so we return here to retry
 				log.Error(err, "unable to delete PolicyAttachment")
 				return ctrl.Result{}, err
 			}
@@ -119,14 +130,21 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// 	2) 	AWS doesn't support updates of attachments,
 	//		so even if the target is the same as the ARN, we need to recreate
 	if policyattachment.Status.ARN != "" {
-		if err := DeleteAWSObject(&policyattachment, ins, EmptyPreFunc, r.Client, ctx); err != nil {
+		// delete the actual AWS Object and pass the cleanup function
+		statusUpdater, err := DeleteAWSObject(iamsvc, ins, DoNothingPreFunc)
+		// we got a StatusUpdater function returned... let's execute it
+		statusUpdater(ins, &policyattachment, ctx, r.Status(), log)
+		if err != nil {
+			// we had an error during AWS Object deletion... so we return here to retry
 			log.Error(err, "error while deleting PolicyAttachment during reconciliation")
-			return ctrl.Result{}, errWithStatus(&policyattachment, client.IgnoreNotFound(err), r.Status(), ctx)
+			return ctrl.Result{}, err
 		}
 	}
-	if err := CreateAWSObject(&policyattachment, ins, EmptyPreFunc, r.Client, ctx, r.Status()); err != nil {
+	statusUpdater, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
+	statusUpdater(ins, &policyattachment, ctx, r.Status(), log)
+	if err != nil {
 		log.Error(err, "error while creating PolicyAttachment during reconciliation")
-		return ctrl.Result{}, errWithStatus(&policyattachment, client.IgnoreNotFound(err), r.Status(), ctx)
+		return ctrl.Result{}, errWithStatus(&policyattachment, err, r.Status(), ctx)
 	}
 
 	log.Info(fmt.Sprintf("Created PolicyAttachment on target '%s'", policyattachment.Status.ARN))
@@ -204,7 +222,7 @@ func getPolicyAttachmentARNs(policyAttachment *iamv1beta1.PolicyAttachment, ctx 
 		if role.Status.ARN == "" {
 			return policyArn, targetArn, fmt.Errorf("ARN is empty in status for target reference")
 		}
-		targetArn, err := awsarn.Parse(role.Status.ARN)
+		targetArn, err = awsarn.Parse(role.Status.ARN)
 		if err != nil {
 			return policyArn, targetArn, err
 		}
