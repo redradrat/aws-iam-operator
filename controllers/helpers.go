@@ -5,18 +5,20 @@ import (
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
-	awsarn "github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/session"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	awsiam "github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	"github.com/go-logr/logr"
+	"github.com/redradrat/cloud-objects/aws/iam"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/redradrat/cloud-objects/aws"
+
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
-	"github.com/redradrat/aws-iam-operator/aws"
 )
 
-type AWSObject interface {
-	Metadata() metav1.ObjectMeta
+type AWSObjectStatusResource interface {
 	GetStatus() *iamv1beta1.AWSObjectStatus
 	RuntimeObject() runtime.Object
 }
@@ -41,66 +43,35 @@ func removeString(slice []string, s string) (result []string) {
 	return
 }
 
-type PreFunc func(obj AWSObject, c client.Client, ctx context.Context) error
+func CreateAWSObject(svc iamiface.IAMAPI, ins aws.Instance, preFunc func() error) (StatusUpdater, error) {
 
-func EmptyPreFunc(obj AWSObject, c client.Client, ctx context.Context) error {
-	return nil
+	if err := preFunc(); err != nil {
+		return ErrorStatusUpdater(err.Error()), err
+	}
+
+	if err := ins.Create(svc); err != nil {
+		return ErrorStatusUpdater(err.Error()), err
+	}
+
+	return SuccessStatusUpdater(), nil
 }
 
-func CreateAWSObject(obj AWSObject, ins aws.Instance, preFunc PreFunc, c client.Client, ctx context.Context, sw client.StatusWriter) error {
+func DeleteAWSObject(svc iamiface.IAMAPI, ins aws.Instance, preFunc func() error) (StatusUpdater, error) {
 
-	obj.GetStatus().State = iamv1beta1.SyncSyncState
-	obj.GetStatus().LastSyncAttempt = time.Now().Format(time.RFC822Z)
-
-	session, err := startReconciliation()
-	if err != nil {
-		return err
+	if err := preFunc(); err != nil {
+		return ErrorStatusUpdater(err.Error()), err
 	}
 
-	if err := preFunc(obj, c, ctx); err != nil {
-		return err
-	}
-	arn, err := ins.Create(session)
-	if err != nil {
-		return err
+	if err := ins.Delete(svc); err != nil {
+		return ErrorStatusUpdater(err.Error()), err
 	}
 
-	obj.GetStatus().ARN = arn.String()
-	obj.GetStatus().Message = "Successfully reconciled"
-	obj.GetStatus().State = iamv1beta1.OkSyncState
-	err = sw.Update(ctx, obj.RuntimeObject())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return DoNothingStatusUpdater, nil
 }
 
-func DeleteAWSObject(obj AWSObject, ins aws.Instance, preFunc PreFunc, c client.Client, ctx context.Context) error {
-	obj.GetStatus().State = iamv1beta1.SyncSyncState
-	obj.GetStatus().LastSyncAttempt = time.Now().Format(time.RFC822Z)
+func DoNothingPreFunc() error { return nil }
 
-	session, err := startReconciliation()
-	if err != nil {
-		return err
-	}
-
-	arn, err := awsarn.Parse(obj.GetStatus().ARN)
-	if err != nil {
-		return err
-	}
-
-	if err := preFunc(obj, c, ctx); err != nil {
-		return err
-	}
-	if err = ins.Delete(session, arn); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func errWithStatus(obj AWSObject, err error, sw client.StatusWriter, ctx context.Context) error {
+func errWithStatus(obj AWSObjectStatusResource, err error, sw client.StatusWriter, ctx context.Context) error {
 	origerr := err
 	obj.GetStatus().Message = origerr.Error()
 	obj.GetStatus().State = iamv1beta1.ErrorSyncState
@@ -110,7 +81,7 @@ func errWithStatus(obj AWSObject, err error, sw client.StatusWriter, ctx context
 	return origerr
 }
 
-func startReconciliation() (*session.Session, error) {
+func IAMService() (*awsiam.IAM, error) {
 	session, err := session.NewSession(&awssdk.Config{
 		Region: awssdk.String("eu-west-1")},
 	)
@@ -118,5 +89,37 @@ func startReconciliation() (*session.Session, error) {
 		return nil, err
 	}
 
-	return session, nil
+	return iam.Client(session), nil
+}
+
+type StatusUpdater func(ins aws.Instance, obj AWSObjectStatusResource, ctx context.Context, sw client.StatusWriter, log logr.Logger)
+
+func SuccessStatusUpdater() StatusUpdater {
+	return func(ins aws.Instance, obj AWSObjectStatusResource, ctx context.Context, sw client.StatusWriter, log logr.Logger) {
+		obj.GetStatus().ARN = ins.ARN().String()
+		obj.GetStatus().Message = "Succesfully reconciled"
+		obj.GetStatus().State = iamv1beta1.OkSyncState
+		obj.GetStatus().LastSyncAttempt = time.Now().Format(time.RFC822Z)
+
+		err := sw.Update(ctx, obj.RuntimeObject())
+		if err != nil {
+			log.Error(err, "unable to write status to resource")
+		}
+	}
+}
+
+func ErrorStatusUpdater(reason string) StatusUpdater {
+	return func(ins aws.Instance, obj AWSObjectStatusResource, ctx context.Context, sw client.StatusWriter, log logr.Logger) {
+		obj.GetStatus().Message = reason
+		obj.GetStatus().State = iamv1beta1.ErrorSyncState
+		obj.GetStatus().LastSyncAttempt = time.Now().Format(time.RFC822Z)
+
+		err := sw.Update(ctx, obj.RuntimeObject())
+		if err != nil {
+			log.Error(err, "unable to write status to resource")
+		}
+	}
+}
+
+func DoNothingStatusUpdater(ins aws.Instance, obj AWSObjectStatusResource, ctx context.Context, sw client.StatusWriter, log logr.Logger) {
 }

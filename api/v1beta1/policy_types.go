@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/redradrat/cloud-objects/aws/iam"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,7 +32,7 @@ const (
 )
 
 const (
-	PolicyVersion string = "2012-10-17"
+	PolicyVersion iam.PolicyVersion = iam.PolicyVersion20121017
 )
 
 // PolicyStatementConditionOperator is the operator for following comparison
