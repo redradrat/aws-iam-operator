@@ -27,6 +27,10 @@ func (pa *PolicyAttachment) GetAttachmentType() (iam.AttachmentType, error) {
 	switch targetType {
 	case RoleTargetType:
 		attachmentType = iam.RoleAttachmentType
+	case UserTargetType:
+		attachmentType = iam.UserAttachmentType
+	case GroupTargetType:
+		attachmentType = iam.GroupAttachmentType
 	default:
 		return attachmentType, fmt.Errorf("unsupported TargetType '%s'", targetType)
 	}

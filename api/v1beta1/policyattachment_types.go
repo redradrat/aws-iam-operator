@@ -32,7 +32,9 @@ type ResourceReference struct {
 type TargetType string
 
 const (
-	RoleTargetType TargetType = "Role"
+	RoleTargetType  TargetType = "Role"
+	UserTargetType  TargetType = "User"
+	GroupTargetType TargetType = "Group"
 )
 
 type TargetReference struct {

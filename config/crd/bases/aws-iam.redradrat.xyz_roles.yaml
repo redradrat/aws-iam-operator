@@ -93,8 +93,8 @@ spec:
                 type: object
               type: array
             assumeRolePolicyRef:
-              description: AssumeRolePolicyReference refrences a Policy resource to
-                use as AssumeRolePolicy
+              description: AssumeRolePolicyReference references a Policy resource
+                to use as AssumeRolePolicy
               properties:
                 name:
                   type: string
@@ -105,6 +105,9 @@ spec:
               description: CreateServiceAccount triggers the creation of an annotated
                 ServiceAccount for the created role
               type: boolean
+            description:
+              description: Description holds the description string for the Role
+              type: string
           type: object
         status:
           properties:

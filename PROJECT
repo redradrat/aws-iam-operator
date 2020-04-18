@@ -13,4 +13,10 @@ resources:
 - group: aws-iam
   kind: AssumeRolePolicy
   version: v1beta1
+- group: aws-iam
+  kind: Group
+  version: v1beta1
+- group: aws-iam
+  kind: User
+  version: v1beta1
 version: "2"

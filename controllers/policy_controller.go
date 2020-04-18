@@ -162,7 +162,7 @@ func policyCleanup(r *PolicyReconciler, ctx context.Context, policy *iamv1beta1.
 		}
 		for _, att := range attachments.Items {
 			if att.Spec.PolicyReference.Name == policy.Name && att.Spec.PolicyReference.Namespace == policy.Namespace {
-				err := fmt.Errorf(fmt.Sprintf("cannot delete policy due to existing PolicyAttachment '%s/%s'", policy.Name, policy.Namespace))
+				err := fmt.Errorf(fmt.Sprintf("cannot delete policy due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace))
 				return err
 			}
 		}

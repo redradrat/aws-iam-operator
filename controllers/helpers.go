@@ -56,6 +56,19 @@ func CreateAWSObject(svc iamiface.IAMAPI, ins aws.Instance, preFunc func() error
 	return SuccessStatusUpdater(), nil
 }
 
+func UpdateAWSObject(svc iamiface.IAMAPI, ins aws.Instance, preFunc func() error) (StatusUpdater, error) {
+
+	if err := preFunc(); err != nil {
+		return ErrorStatusUpdater(err.Error()), err
+	}
+
+	if err := ins.Update(svc); err != nil {
+		return ErrorStatusUpdater(err.Error()), err
+	}
+
+	return SuccessStatusUpdater(), nil
+}
+
 func DeleteAWSObject(svc iamiface.IAMAPI, ins aws.Instance, preFunc func() error) (StatusUpdater, error) {
 
 	if err := preFunc(); err != nil {

@@ -26,6 +26,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	awsiamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
 	"github.com/redradrat/aws-iam-operator/controllers"
 	// +kubebuilder:scaffold:imports
@@ -40,6 +41,7 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = iamv1beta1.AddToScheme(scheme)
+	_ = awsiamv1beta1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -90,6 +92,22 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PolicyAttachment")
+		os.Exit(1)
+	}
+	if err = (&controllers.GroupReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Group"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Group")
+		os.Exit(1)
+	}
+	if err = (&controllers.UserReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("User"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "User")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

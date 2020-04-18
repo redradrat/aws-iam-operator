@@ -65,7 +65,7 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// the finalizer for deleting the actual aws resources
-	policiesFinalizer := "role.aws-iam.redradrat.xyz"
+	rolesFinalizer := "role.aws-iam.redradrat.xyz"
 
 	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
 	iamsvc, err := IAMService()
@@ -98,15 +98,15 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !containsString(role.ObjectMeta.Finalizers, policiesFinalizer) {
-			role.ObjectMeta.Finalizers = append(role.ObjectMeta.Finalizers, policiesFinalizer)
+		if !containsString(role.ObjectMeta.Finalizers, rolesFinalizer) {
+			role.ObjectMeta.Finalizers = append(role.ObjectMeta.Finalizers, rolesFinalizer)
 			if err := r.Update(context.Background(), &role); err != nil {
 				log.Error(err, "unable to register finalizer for Role")
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
-		if containsString(role.ObjectMeta.Finalizers, policiesFinalizer) {
+		if containsString(role.ObjectMeta.Finalizers, rolesFinalizer) {
 			// our finalizer is present, so lets handle any external dependency
 
 			// delete the actual AWS Object and pass the cleanup function
@@ -120,7 +120,7 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			}
 
 			// remove our finalizer from the list and update it.
-			role.ObjectMeta.Finalizers = removeString(role.ObjectMeta.Finalizers, policiesFinalizer)
+			role.ObjectMeta.Finalizers = removeString(role.ObjectMeta.Finalizers, rolesFinalizer)
 			if err := r.Update(context.Background(), &role); err != nil {
 				log.Error(err, "unable to remove finalizer from Role")
 				return ctrl.Result{}, err
@@ -187,9 +187,11 @@ func roleCleanup(r *RoleReconciler, ctx context.Context, role iamv1beta1.Role) f
 			return err
 		}
 		for _, att := range attachments.Items {
-			if att.Spec.PolicyReference.Name == role.Name && att.Spec.PolicyReference.Namespace == role.Namespace {
-				err := fmt.Errorf(fmt.Sprintf("cannot delete policy due to existing PolicyAttachment '%s/%s'", role.Name, role.Namespace))
-				return err
+			if att.Spec.TargetReference.Type == iamv1beta1.RoleTargetType {
+				if att.Spec.TargetReference.Name == role.Name && att.Spec.TargetReference.Namespace == role.Namespace {
+					err := fmt.Errorf(fmt.Sprintf("cannot delete Role due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace))
+					return err
+				}
 			}
 		}
 		return nil

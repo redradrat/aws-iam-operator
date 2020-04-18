@@ -9,6 +9,26 @@ rules:
 - apiGroups:
   - aws-iam.redradrat.xyz
   resources:
+  - groups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - groups/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
   - policies
   verbs:
   - create
@@ -42,6 +62,26 @@ rules:
   - aws-iam.redradrat.xyz
   resources:
   - roles/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - users
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - users/status
   verbs:
   - get
   - patch

@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
-  name: policies.aws-iam.redradrat.xyz
+  name: users.aws-iam.redradrat.xyz
 spec:
   additionalPrinterColumns:
   - JSONPath: .status.arn
@@ -21,18 +21,18 @@ spec:
     type: string
   group: aws-iam.redradrat.xyz
   names:
-    kind: Policy
-    listKind: PolicyList
-    plural: policies
+    kind: User
+    listKind: UserList
+    plural: users
     shortNames:
-    - iampolicy
-    singular: policy
+    - iamuser
+    singular: user
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: Policy is the Schema for the policies API
+      description: User is the Schema for the users API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -47,46 +47,16 @@ spec:
         metadata:
           type: object
         spec:
-          description: PolicySpec defines the desired state of Policy
+          description: UserSpec defines the desired state of User
           properties:
-            description:
-              description: Description holds the description string for the Role
-              type: string
-            statement:
-              description: Statements holds the list of all the policy statement entries
-              items:
-                properties:
-                  actions:
-                    description: Actions holds the desired effect the statement should
-                      ensure
-                    items:
-                      type: string
-                    type: array
-                  conditions:
-                    additionalProperties:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    description: Conditions specifies the circumstances under which
-                      the policy grants permission
-                    type: object
-                  effect:
-                    description: Effect holds the desired effect the statement should
-                      ensure
-                    type: string
-                  resources:
-                    description: Resources denotes an a list of resources to which
-                      the actions apply. If you do not set this value, then the resource
-                      to which the action applies is the resource to which the policy
-                      is attached to
-                    items:
-                      type: string
-                    type: array
-                  sid:
-                    description: Sid is an optional Statement ID to identify a Statement
-                    type: string
-                type: object
-              type: array
+            createLoginProfile:
+              description: CreateLoginProfile triggers the creation of Login Profile
+                in AWS and creates a user/pass secret
+              type: boolean
+            createProgrammaticAccess:
+              description: CreateProgrammaticAccess triggers the creation of API creds
+                in AWS and creates a cred secret
+              type: boolean
           type: object
         status:
           properties:
