@@ -30,6 +30,8 @@ kubectl kustomize github.com/redradrat/aws-iam-operator/config/manager?ref=maste
 * [AssumeRolePolicy](#AssumeRolePolicy)
 * [Policy](#Policy)
 * [PolicyAttachment](#PolicyAttachment)
+* [User](#User)
+* [Group](#Group)
 
 ### Role
 
@@ -141,5 +143,80 @@ spec:
   target:
     type: Role
     name: role-sample
+    namespace: default
+```
+
+### User
+
+The User resource abstracts an AWS IAM User. 
+
+Setting `createLoginProfile` or an `createProgrammaticAccess` is **optional**.
+Creating a `Secret` resource, containing Console Login Data, is possible via `createLoginProfile`. The created secret includes the username and password.
+Creating a `Secret` resource, containing a Programmatic Access, is possible via `createProgrammaticAccess`. The created secret includes the both the Key ID and the Secret.
+
+```yaml
+apiVersion: aws-iam.redradrat.xyz/v1beta1
+kind: User
+metadata:
+  name: user-sample
+spec:
+  createLoginProfile: true
+  createProgrammaticAccess: true
+```
+
+Resulting `Secrets`:
+```yaml
+❯ k get secrets user-sample-login -o yaml
+apiVersion: v1
+data:
+  password: ...
+  username: ...
+kind: Secret
+metadata:
+  name: user-sample-login
+  namespace: default
+  ownerReferences:
+  - apiVersion: aws-iam.redradrat.xyz/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: User
+    name: user-sample
+    uid: 784d4ff5-377e-4172-a1cf-1b34387a3d6b
+type: Opaque
+```
+```yaml
+❯ k get secret user-sample-accesskey -o yaml
+apiVersion: v1
+data:
+  id: ...
+  secret: ...
+kind: Secret
+metadata:
+  name: user-sample-accesskey
+  namespace: default
+  ownerReferences:
+  - apiVersion: aws-iam.redradrat.xyz/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: User
+    name: user-sample
+type: Opaque
+```
+
+
+### Group
+
+The Group resource abstracts an AWS IAM Group. 
+
+Adding IAM Users to the group, is possible via `users`. The referenced users need to be created via this operator.
+
+```yaml
+apiVersion: aws-iam.redradrat.xyz/v1beta1
+kind: Group
+metadata:
+  name: group-sample
+spec:
+  users:
+  - name: user-sample
     namespace: default
 ```

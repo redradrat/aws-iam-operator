@@ -3,6 +3,8 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
   name: users.aws-iam.redradrat.xyz
 spec:
@@ -66,6 +68,23 @@ spec:
             lastSyncAttempt:
               description: LastSyncTime holds the timestamp of the last sync attempt
               type: string
+            loginProfileCreated:
+              description: LoginProfileCreated holds info about whether or not a LoginProfile
+                has been created for this user
+              type: boolean
+            loginProfileSecret:
+              description: LoginProfileSecret holds the reference to the created LoginProfile
+                Secret
+              properties:
+                name:
+                  description: Name is unique within a namespace to reference a secret
+                    resource.
+                  type: string
+                namespace:
+                  description: Namespace defines the space within which the secret
+                    name must be unique.
+                  type: string
+              type: object
             message:
               description: Message holds the current/last status message from the
                 operator.
@@ -75,6 +94,23 @@ spec:
                 in CR) observed by the controller
               format: int64
               type: integer
+            programmaticAccessCreated:
+              description: ProgrammaticAccessCreated holds info about whether or not
+                programmatic access credentials have been created for this user
+              type: boolean
+            programmaticAccessSecret:
+              description: ProgrammaticAccessSecret holds the reference to the created
+                LoginProfile Secret
+              properties:
+                name:
+                  description: Name is unique within a namespace to reference a secret
+                    resource.
+                  type: string
+                namespace:
+                  description: Namespace defines the space within which the secret
+                    name must be unique.
+                  type: string
+              type: object
             state:
               description: State holds the current state of the resource
               type: string

@@ -1,0 +1,24 @@
+# permissions for end users to edit userattachments.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: userattachment-editor-role
+rules:
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - userattachments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - userattachments/status
+  verbs:
+  - get

@@ -31,7 +31,7 @@ type UserSpec struct {
 }
 
 type UserStatus struct {
-	AWSObjectStatus
+	AWSObjectStatus `json:",inline"`
 
 	// +kubebuilder:validation:optional
 	//

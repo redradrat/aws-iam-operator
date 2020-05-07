@@ -1,0 +1,7 @@
+apiVersion: aws-iam.redradrat.xyz/v1beta1
+kind: UserAttachment
+metadata:
+  name: userattachment-sample
+spec:
+  # Add fields here
+  foo: bar

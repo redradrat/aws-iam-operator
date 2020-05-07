@@ -24,28 +24,17 @@ import (
 // GroupSpec defines the desired state of Group
 type GroupSpec struct {
 
-	// +kubebuilder:validation:Optional
-	//
-	// UserSelector defines the selection criteria for users, that shall be included in the group
-	UserSelector map[string]string `json:"userSelector,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	//
-	// UserSelector is a list of User References, that shall be included in the group
-	UserReferences []v1.ObjectReference `json:"userReferences,omitempty"`
+	// Users holds the list of all Users to be added the group
+	// +kubebuilder:validation:optional
+	Users []v1.ObjectReference `json:"users,omitempty"`
 }
 
 type GroupStatus struct {
-	AWSObjectStatus
-
-	// +kubebuilder:validation:Optional
-	//
-	// UsersAdded is a list of User References, that have been added to the Group on the last run
-	UsersAdded []v1.ObjectReference `json:"usersAdded,omitempty"`
+	AWSObjectStatus `json:",inline"`
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=roles,shortName=iamrole
+// +kubebuilder:resource:path=groups,shortName=iamgroup
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="ARN",type=string,JSONPath=`.status.arn`
 // +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.message`

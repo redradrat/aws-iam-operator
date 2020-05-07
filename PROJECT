@@ -19,4 +19,10 @@ resources:
 - group: aws-iam
   kind: User
   version: v1beta1
+- group: aws-iam
+  kind: GroupAttachment
+  version: v1beta1
+- group: aws-iam
+  kind: UserAttachment
+  version: v1beta1
 version: "2"

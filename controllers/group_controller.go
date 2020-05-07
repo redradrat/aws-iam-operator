@@ -19,12 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"time"
 
-	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,8 +30,6 @@ import (
 
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
 )
-
-const RequeueInterval time.Duration = 20 * time.Second
 
 // GroupReconciler reconciles a Group object
 type GroupReconciler struct {
@@ -58,14 +52,6 @@ func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if len(group.Spec.UserReferences) == 0 && len(group.Spec.UserSelector) == 0 {
-		return ctrl.Result{}, fmt.Errorf("neither userReferences nor userSelector defined")
-	}
-
-	if len(group.Spec.UserReferences) != 0 && len(group.Spec.UserSelector) != 0 {
-		return ctrl.Result{}, fmt.Errorf("both userReferences and userSelector defined")
-	}
-
 	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
 	iamsvc, err := IAMService()
 	if err != nil {
@@ -84,29 +70,13 @@ func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		ins = iam.NewGroupInstance(group.Name)
 	}
 
-	var users []v1.ObjectReference
-	if len(group.Spec.UserReferences) == 0 {
-		for _, usr := range group.Spec.UserReferences {
-			users = append(users, v1.ObjectReference{Name: usr.Name, Namespace: usr.Namespace})
-		}
-	} else {
-		usrList := iamv1beta1.UserList{}
-		if err = r.List(ctx, &usrList, client.MatchingLabels(group.Spec.UserSelector)); err != nil {
-			ErrorStatusUpdater(err.Error())(ins, &group, ctx, r.Status(), log)
-			return ctrl.Result{}, err
-		}
-		for _, usr := range usrList.Items {
-			users = append(users, v1.ObjectReference{Name: usr.Name, Namespace: usr.Namespace})
-		}
+	// return if only status/metadata updated
+	if group.Status.ObservedGeneration == group.ObjectMeta.Generation && group.Status.State == iamv1beta1.OkSyncState {
+		return ctrl.Result{}, nil
 	}
 
-	// return if only status/metadata updated
-	if reflect.DeepEqual(users, group.Status.UsersAdded) && group.Status.ObservedGeneration == group.ObjectMeta.Generation && group.Status.State == iamv1beta1.OkSyncState {
-		return ctrl.Result{}, nil
-	} else {
-		group.Status.ObservedGeneration = group.ObjectMeta.Generation
-		r.Status().Update(ctx, &group)
-	}
+	group.Status.ObservedGeneration = group.ObjectMeta.Generation
+	r.Status().Update(ctx, &group)
 
 	// the finalizer for deleting the actual aws resources
 	groupsFinalizer := "group.aws-iam.redradrat.xyz"
@@ -173,31 +143,33 @@ func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	// Add all referenced Users to the Group
-	for _, ref := range users {
-		usr := iamv1beta1.User{}
-		if err = r.Client.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: ref.Namespace}, &usr); err != nil {
-			ErrorStatusUpdater(err.Error())(ins, &group, ctx, r.Status(), log)
-			return ctrl.Result{}, err
-		}
-		usrarn, err := arn.Parse(usr.Status.ARN)
+	// Now add all required users
+	for _, user := range group.Spec.Users {
+		// Get the User object
+		userObj := iamv1beta1.User{}
+		r.Client.Get(ctx, client.ObjectKey{Name: user.Name, Namespace: user.Namespace}, &userObj)
 		if err != nil {
-			ErrorStatusUpdater(err.Error())(ins, &group, ctx, r.Status(), log)
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errWithStatus(&group, err, r.Status(), ctx)
 		}
-		if err = ins.AddUser(iamsvc, usrarn); err != nil {
-			ErrorStatusUpdater(err.Error())(ins, &group, ctx, r.Status(), log)
-			return ctrl.Result{}, err
+
+		// Err if ARN is not available in the user obj
+		if userObj.Status.ARN == "" {
+			return ctrl.Result{}, errWithStatus(&group, fmt.Errorf("referenced user resource '%s/%s' has not yet been created", user.Namespace, user.Name), r.Status(), ctx)
+		}
+
+		// parse the user arn
+		parsedArn, err := aws.ARNify(userObj.Status.ARN)
+		if err != nil {
+			return ctrl.Result{}, errWithStatus(&group, fmt.Errorf("ARN in referenced User status is not valid/parsable"), r.Status(), ctx)
+		}
+
+		// Now add the user to our Group Instance
+		if err = ins.AddUser(iamsvc, parsedArn[len(parsedArn)-1]); err != nil {
+			return ctrl.Result{}, errWithStatus(&group, err, r.Status(), ctx)
 		}
 	}
 
-	group.Status.UsersAdded = users
-	if err = r.Status().Update(ctx, &group); err != nil {
-		ErrorStatusUpdater(err.Error())(ins, &group, ctx, r.Status(), log)
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{RequeueAfter: RequeueInterval}, nil
+	return ctrl.Result{}, nil
 }
 
 func (r *GroupReconciler) SetupWithManager(mgr ctrl.Manager) error {

@@ -1,0 +1,20 @@
+# permissions for end users to view userattachments.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: userattachment-viewer-role
+rules:
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - userattachments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - userattachments/status
+  verbs:
+  - get

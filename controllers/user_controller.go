@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,6 +32,15 @@ import (
 	"github.com/redradrat/cloud-objects/aws/iam"
 
 	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
+)
+
+const (
+	LoginSecretSuffix        = "-login"
+	LoginSecretUserKey       = "username"
+	LoginSecretPassKey       = "password"
+	AccesskeySecretSuffix    = "-accesskey"
+	AccesskeySecretIdKey     = "id"
+	AccesskeySecretSecretKey = "secret"
 )
 
 // UserReconciler reconciles a User object
@@ -78,7 +88,7 @@ func (r *UserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if err != nil {
 			return ctrl.Result{}, errWithStatus(&user, fmt.Errorf("ARN in User status is not valid/parsable"), r.Status(), ctx)
 		}
-		ins = iam.NewExistingUserInstance(user.Name, user.Spec.CreateLoginProfile, user.Spec.CreateProgrammaticAccess, parsedArn[len(parsedArn)-1])
+		ins = iam.NewExistingUserInstance(user.Name, user.Spec.CreateLoginProfile, user.Status.LoginProfileCreated, user.Spec.CreateProgrammaticAccess, user.Status.ProgrammaticAccessCreated, parsedArn[len(parsedArn)-1])
 	} else {
 		ins = iam.NewUserInstance(user.Name, user.Spec.CreateLoginProfile, user.Spec.CreateProgrammaticAccess)
 	}
@@ -125,8 +135,8 @@ func (r *UserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// RECONCILE THE RESOURCE
 
-	loginSecret := user.Name + "-login"
-	accessKeySecret := user.Name + "-accesskey"
+	loginSecret := user.Name + LoginSecretSuffix
+	accessKeySecret := user.Name + AccesskeySecretSuffix
 
 	// if there is already an ARN in our status, then we recreate the object completely
 	// (because AWS only supports description updates)
@@ -149,41 +159,61 @@ func (r *UserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// Create Secret if Login Profile
-	if ins.LoginProfileCredentials() != nil {
-		data := map[string]string{"username": ins.LoginProfileCredentials().Username(), "password": ins.LoginProfileCredentials().Password()}
-		sec := userSecret(data, loginSecret, user.Namespace)
-		if err = ctrl.SetControllerReference(&user, sec, r.Scheme); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err = r.Client.Create(ctx, sec); err != nil {
-			return ctrl.Result{}, err
+	if user.Spec.CreateLoginProfile {
+		if !user.Status.LoginProfileCreated {
+			data := map[string]string{LoginSecretUserKey: ins.LoginProfileCredentials().Username(), LoginSecretPassKey: ins.LoginProfileCredentials().Password()}
+			sec := userSecret(data, loginSecret, user.Namespace)
+			if err = ctrl.SetControllerReference(&user, sec, r.Scheme); err != nil {
+				return ctrl.Result{}, err
+			}
+			if err = r.Client.Create(ctx, sec); err != nil {
+				return ctrl.Result{}, err
+			}
+			user.Status.LoginProfileCreated = true
+			user.Status.LoginProfileSecret = v1.SecretReference{Name: sec.Name, Namespace: sec.Namespace}
+			r.Status().Update(ctx, &user)
 		}
 	} else {
 		sec := &v1.Secret{}
 		if err = r.Client.Get(ctx, client.ObjectKey{Name: loginSecret, Namespace: user.Namespace}, sec); client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
-		if err = r.Client.Delete(ctx, sec); client.IgnoreNotFound(err) != nil {
-			return ctrl.Result{}, err
+		if !errors.IsNotFound(err) {
+			if err = r.Client.Delete(ctx, sec); client.IgnoreNotFound(err) != nil {
+				return ctrl.Result{}, err
+			}
+			user.Status.LoginProfileCreated = false
+			user.Status.LoginProfileSecret = v1.SecretReference{}
+			r.Status().Update(ctx, &user)
 		}
 	}
 
-	if ins.AccessKey() != nil {
-		data := map[string]string{"id": ins.AccessKey().Id(), "secret": ins.AccessKey().Secret()}
-		sec := userSecret(data, accessKeySecret, user.Namespace)
-		if err = ctrl.SetControllerReference(&user, sec, r.Scheme); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err = r.Client.Create(ctx, sec); err != nil {
-			return ctrl.Result{}, err
+	if user.Spec.CreateProgrammaticAccess {
+		if !user.Status.ProgrammaticAccessCreated {
+			data := map[string]string{AccesskeySecretIdKey: ins.AccessKey().Id(), AccesskeySecretSecretKey: ins.AccessKey().Secret()}
+			sec := userSecret(data, accessKeySecret, user.Namespace)
+			if err = ctrl.SetControllerReference(&user, sec, r.Scheme); err != nil {
+				return ctrl.Result{}, err
+			}
+			if err = r.Client.Create(ctx, sec); err != nil {
+				return ctrl.Result{}, err
+			}
+			user.Status.ProgrammaticAccessCreated = true
+			user.Status.ProgrammaticAccessSecret = v1.SecretReference{Name: sec.Name, Namespace: sec.Namespace}
+			r.Status().Update(ctx, &user)
 		}
 	} else {
 		sec := &v1.Secret{}
 		if err = r.Client.Get(ctx, client.ObjectKey{Name: accessKeySecret, Namespace: user.Namespace}, sec); client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
-		if err = r.Client.Delete(ctx, sec); client.IgnoreNotFound(err) != nil {
-			return ctrl.Result{}, err
+		if !errors.IsNotFound(err) {
+			if err = r.Client.Delete(ctx, sec); client.IgnoreNotFound(err) != nil {
+				return ctrl.Result{}, err
+			}
+			user.Status.ProgrammaticAccessCreated = false
+			user.Status.ProgrammaticAccessSecret = v1.SecretReference{}
+			r.Status().Update(ctx, &user)
 		}
 	}
 
@@ -208,19 +238,6 @@ func userCleanup(r *UserReconciler, ctx context.Context, user iamv1beta1.User) f
 			if att.Spec.TargetReference.Type == iamv1beta1.UserTargetType {
 				if att.Spec.TargetReference.Name == user.Name && att.Spec.TargetReference.Namespace == user.Namespace {
 					err := fmt.Errorf(fmt.Sprintf("cannot delete User due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace))
-					return err
-				}
-			}
-		}
-
-		groups := iamv1beta1.GroupList{}
-		if err := r.List(ctx, &groups); err != nil {
-			return err
-		}
-		for _, grp := range groups.Items {
-			for _, userref := range grp.Spec.UserReferences {
-				if userref.Name == user.Name && userref.Namespace == user.Namespace {
-					err := fmt.Errorf(fmt.Sprintf("cannot delete User due to explicit Reference in Group '%s/%s'", grp.Name, grp.Namespace))
 					return err
 				}
 			}
