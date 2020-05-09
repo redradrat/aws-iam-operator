@@ -6,6 +6,22 @@ metadata:
   creationTimestamp: null
   name: manager-role
 rules:
+- resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- resources:
+  - secrets/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - aws-iam.redradrat.xyz
   resources:
@@ -102,6 +118,22 @@ rules:
   - iam.redradrat.xyz
   resources:
   - policyassignments/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - iam.redradrat.xyz
+  resources:
+  - users
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - iam.redradrat.xyz
+  resources:
+  - users/status
   verbs:
   - get
   - patch
