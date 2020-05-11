@@ -5,7 +5,7 @@ metadata:
   name: assumerolepolicy-viewer-role
 rules:
 - apiGroups:
-  - iam.redradrat.xyz
+  - aws-iam.redradrat.xyz
   resources:
   - assumerolepolicies
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - iam.redradrat.xyz
+  - aws-iam.redradrat.xyz
   resources:
   - assumerolepolicies/status
   verbs:
