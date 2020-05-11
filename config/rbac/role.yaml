@@ -6,7 +6,9 @@ metadata:
   creationTimestamp: null
   name: manager-role
 rules:
-- resources:
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - create
@@ -16,7 +18,9 @@ rules:
   - patch
   - update
   - watch
-- resources:
+- apiGroups:
+  - "" 
+  resources:
   - secrets/status
   verbs:
   - get
@@ -103,9 +107,9 @@ rules:
   - patch
   - update
 - apiGroups:
-  - iam.redradrat.xyz
+  - aws-iam.redradrat.xyz
   resources:
-  - policyassignments
+  - policyattachments
   verbs:
   - create
   - delete
@@ -115,25 +119,29 @@ rules:
   - update
   - watch
 - apiGroups:
-  - iam.redradrat.xyz
+  - aws-iam.redradrat.xyz
   resources:
-  - policyassignments/status
+  - policyattachments/status
   verbs:
   - get
   - patch
   - update
 - apiGroups:
-  - iam.redradrat.xyz
+  - aws-iam.redradrat.xyz
   resources:
-  - users
+  - assumerolepolicies
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
-  - iam.redradrat.xyz
+  - aws-iam.redradrat.xyz
   resources:
-  - users/status
+  - assumerolepolicies/status
   verbs:
   - get
   - patch
