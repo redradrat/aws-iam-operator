@@ -36,7 +36,7 @@ The controller manager has a couple of input options, which you can set as param
         - /manager
         args:
         - --enable-leader-election # For HA setup
-        - --resource-prefix # set a prefix to all created AWS resources (e.g. "testcluster-" -> "testcluster-user")
+        - --resource-prefix "testcluster" # set a prefix to all created AWS resources (e.g. "testcluster-" -> "testcluster-user")
         image: redradrat/aws-iam-controller:latest
         name: manager
 ```
