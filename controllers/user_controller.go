@@ -46,16 +46,19 @@ const (
 // UserReconciler reconciles a User object
 type UserReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log            logr.Logger
+	Scheme         *runtime.Scheme
+	ResourcePrefix string
 }
 
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=users,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=users/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=iam.redradrat.xyz,resources=policyassignments,verbs=get;list;watch
-// +kubebuilder:rbac:groups=iam.redradrat.xyz,resources=policyassignments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=,resources=secrets/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=serviceaccounts/status,verbs=get;update;patch
 
 func (r *UserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -86,15 +89,16 @@ func (r *UserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// new user instance
+	userName := r.ResourcePrefix + user.Name
 	var ins *iam.UserInstance
 	if user.Status.ARN != "" {
 		parsedArn, err := aws.ARNify(user.Status.ARN)
 		if err != nil {
 			return ctrl.Result{}, errWithStatus(&user, fmt.Errorf("ARN in User status is not valid/parsable"), r.Status(), ctx)
 		}
-		ins = iam.NewExistingUserInstance(user.Name, user.Spec.CreateLoginProfile, user.Status.LoginProfileCreated, user.Spec.CreateProgrammaticAccess, user.Status.ProgrammaticAccessCreated, parsedArn[len(parsedArn)-1])
+		ins = iam.NewExistingUserInstance(userName, user.Spec.CreateLoginProfile, user.Status.LoginProfileCreated, user.Spec.CreateProgrammaticAccess, user.Status.ProgrammaticAccessCreated, parsedArn[len(parsedArn)-1])
 	} else {
-		ins = iam.NewUserInstance(user.Name, user.Spec.CreateLoginProfile, user.Spec.CreateProgrammaticAccess)
+		ins = iam.NewUserInstance(userName, user.Spec.CreateLoginProfile, user.Spec.CreateProgrammaticAccess)
 	}
 
 	cleanupFunc := userCleanup(r, ctx, user)

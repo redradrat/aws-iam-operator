@@ -34,16 +34,17 @@ import (
 // GroupReconciler reconciles a Group object
 type GroupReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log            logr.Logger
+	Scheme         *runtime.Scheme
+	ResourcePrefix string
 }
 
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=groups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=groups/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=iam.redradrat.xyz,resources=policyassignments,verbs=get;list;watch
-// +kubebuilder:rbac:groups=iam.redradrat.xyz,resources=policyassignments/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=iam.redradrat.xyz,resources=users,verbs=get;list;watch
-// +kubebuilder:rbac:groups=iam.redradrat.xyz,resources=users/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=users,verbs=get;list;watch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=users/status,verbs=get;update;patch
 
 func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -64,14 +65,15 @@ func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// new group instance
 	var ins *iam.GroupInstance
+	groupName := r.ResourcePrefix + group.Name
 	if group.Status.ARN != "" {
 		parsedArn, err := aws.ARNify(group.Status.ARN)
 		if err != nil {
 			return ctrl.Result{}, errWithStatus(&group, fmt.Errorf("ARN in Group status is not valid/parsable"), r.Status(), ctx)
 		}
-		ins = iam.NewExistingGroupInstance(group.Name, parsedArn[len(parsedArn)-1])
+		ins = iam.NewExistingGroupInstance(groupName, parsedArn[len(parsedArn)-1])
 	} else {
-		ins = iam.NewGroupInstance(group.Name)
+		ins = iam.NewGroupInstance(groupName)
 	}
 
 	// return if only status/metadata updated
@@ -83,7 +85,7 @@ func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	r.Status().Update(ctx, &group)
 
 	// the finalizer for deleting the actual aws resources
-	groupsFinalizer := "group.aws-iam.redradrat.xyz"
+	groupsFinalizer := "group.aws-aws-iam.redradrat.xyz"
 
 	cleanupFunc := groupCleanup(r, ctx, group)
 

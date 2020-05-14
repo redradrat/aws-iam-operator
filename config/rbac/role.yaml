@@ -6,9 +6,7 @@ metadata:
   creationTimestamp: null
   name: manager-role
 rules:
-- apiGroups:
-  - ""
-  resources:
+- resources:
   - secrets
   verbs:
   - create
@@ -18,17 +16,13 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - "" 
-  resources:
+- resources:
   - secrets/status
   verbs:
   - get
   - patch
-  - update 
-- apiGroups:
-  - ""
-  resources:
+  - update
+- resources:
   - serviceaccounts
   verbs:
   - create
@@ -38,14 +32,28 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - ""  
-  resources:
+- resources:
   - serviceaccounts/status
   verbs:
   - get
   - patch
-  - update  
+  - update
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - assumerolepolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - assumerolepolicies/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - aws-iam.redradrat.xyz
   resources:
@@ -89,6 +97,26 @@ rules:
 - apiGroups:
   - aws-iam.redradrat.xyz
   resources:
+  - policyattachments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - policyattachments/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
   - roles
   verbs:
   - create
@@ -122,46 +150,6 @@ rules:
   - aws-iam.redradrat.xyz
   resources:
   - users/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - aws-iam.redradrat.xyz
-  resources:
-  - policyattachments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - aws-iam.redradrat.xyz
-  resources:
-  - policyattachments/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - aws-iam.redradrat.xyz
-  resources:
-  - assumerolepolicies
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - aws-iam.redradrat.xyz
-  resources:
-  - assumerolepolicies/status
   verbs:
   - get
   - patch

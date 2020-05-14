@@ -34,14 +34,15 @@ import (
 // PolicyReconciler reconciles a Policy object
 type PolicyReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log            logr.Logger
+	Scheme         *runtime.Scheme
+	ResourcePrefix string
 }
 
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policies/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=iam.redradrat.xyz,resources=policyassignments,verbs=get;list;watch
-// +kubebuilder:rbac:groups=iam.redradrat.xyz,resources=policyassignments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments/status,verbs=get;update;patch
 
 func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -73,14 +74,15 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// now let's instantiate our PolicyInstance
 	var ins *iam.PolicyInstance
+	policyName := r.ResourcePrefix + policy.Name
 	if policy.Status.ARN != "" {
 		parsedArn, err := aws.ARNify(policy.Status.ARN)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("ARN in Role status is not valid/parsable")
 		}
-		ins = iam.NewExistingPolicyInstance(policy.Name, policy.Spec.Description, policy.Marshal(), parsedArn[len(parsedArn)-1])
+		ins = iam.NewExistingPolicyInstance(policyName, policy.Spec.Description, policy.Marshal(), parsedArn[len(parsedArn)-1])
 	} else {
-		ins = iam.NewPolicyInstance(policy.Name, policy.Spec.Description, policy.Marshal())
+		ins = iam.NewPolicyInstance(policyName, policy.Spec.Description, policy.Marshal())
 	}
 
 	cleanupFunc := policyCleanup(r, ctx, &policy)

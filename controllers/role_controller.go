@@ -38,14 +38,19 @@ import (
 // RoleReconciler reconciles a Role object
 type RoleReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log            logr.Logger
+	Scheme         *runtime.Scheme
+	ResourcePrefix string
 }
 
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=roles,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=roles/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=iam.redradrat.xyz,resources=policyassignments,verbs=get;list;watch
-// +kubebuilder:rbac:groups=iam.redradrat.xyz,resources=policyassignments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=assumerolepolicies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=assumerolepolicies/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=,resources=secrets/status,verbs=get;update;patch
 
 func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -83,14 +88,15 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// new role instance
 	var ins *iam.RoleInstance
+	roleName := r.ResourcePrefix + role.Name
 	if role.Status.ARN != "" {
 		parsedArn, err := aws.ARNify(role.Status.ARN)
 		if err != nil {
 			return ctrl.Result{}, errWithStatus(&role, fmt.Errorf("ARN in Role status is not valid/parsable"), r.Status(), ctx)
 		}
-		ins = iam.NewExistingRoleInstance(role.Name, role.Spec.Description, polDoc, parsedArn[len(parsedArn)-1])
+		ins = iam.NewExistingRoleInstance(roleName, role.Spec.Description, polDoc, parsedArn[len(parsedArn)-1])
 	} else {
-		ins = iam.NewRoleInstance(role.Name, role.Spec.Description, polDoc)
+		ins = iam.NewRoleInstance(roleName, role.Spec.Description, polDoc)
 	}
 
 	cleanupFunc := roleCleanup(r, ctx, role)
