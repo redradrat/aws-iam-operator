@@ -24,6 +24,23 @@ The controller deployment can be applied to the cluster with kuebctl:
 kubectl kustomize github.com/redradrat/aws-iam-operator/config/manager?ref=master | kubectl apply -f -
 ```
 
+### Controller Manager Options
+
+The controller manager has a couple of input options, which you can set as paramaters on container startup.
+
+```yaml
+...
+    spec:
+      containers:
+      - command:
+        - /manager
+        args:
+        - --enable-leader-election # For HA setup
+        - --resource-prefix # set a prefix to all created AWS resources (e.g. "testcluster-" -> "testcluster-user")
+        image: redradrat/aws-iam-controller:latest
+        name: manager
+```
+
 ## Custom Resources
 
 * [Role](#Role)
