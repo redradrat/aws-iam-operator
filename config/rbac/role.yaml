@@ -6,7 +6,9 @@ metadata:
   creationTimestamp: null
   name: manager-role
 rules:
-- resources:
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - create
@@ -16,13 +18,17 @@ rules:
   - patch
   - update
   - watch
-- resources:
+- apiGroups:
+  - ""
+  resources:
   - secrets/status
   verbs:
   - get
   - patch
   - update
-- resources:
+- apiGroups:
+  - ""
+  resources:
   - serviceaccounts
   verbs:
   - create
@@ -32,7 +38,9 @@ rules:
   - patch
   - update
   - watch
-- resources:
+- apiGroups:
+  - ""
+  resources:
   - serviceaccounts/status
   verbs:
   - get

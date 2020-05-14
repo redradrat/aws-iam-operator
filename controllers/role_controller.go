@@ -49,8 +49,8 @@ type RoleReconciler struct {
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=assumerolepolicies,verbs=get;list;watch
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=assumerolepolicies/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=,resources=secrets/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=secrets/status,verbs=get;update;patch
 
 func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
