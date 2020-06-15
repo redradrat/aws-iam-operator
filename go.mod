@@ -7,7 +7,7 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
-	github.com/redradrat/cloud-objects v0.0.0-20200507193929-19389ff0f606
+	github.com/redradrat/cloud-objects v0.0.0-20200615123626-10ed87c8ed25
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.2
 	k8s.io/client-go v0.17.2

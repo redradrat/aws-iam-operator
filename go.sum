@@ -272,6 +272,8 @@ github.com/redradrat/cloud-objects v0.0.0-20200507191159-9d1ad45848d6 h1:vrrt2WE
 github.com/redradrat/cloud-objects v0.0.0-20200507191159-9d1ad45848d6/go.mod h1:QdAigJualFJxenKYhTozq0Xi6qY7OKXK7o/dfWPk8q4=
 github.com/redradrat/cloud-objects v0.0.0-20200507193929-19389ff0f606 h1:6iWELVK1UjYAdMsTVDnLwGjcLZ8MELS66I5DjK8qLgI=
 github.com/redradrat/cloud-objects v0.0.0-20200507193929-19389ff0f606/go.mod h1:QdAigJualFJxenKYhTozq0Xi6qY7OKXK7o/dfWPk8q4=
+github.com/redradrat/cloud-objects v0.0.0-20200615123626-10ed87c8ed25 h1:XnD4G5z2WYc8GnO1Fd54THqInDoVBP1/huJ74D8IFo8=
+github.com/redradrat/cloud-objects v0.0.0-20200615123626-10ed87c8ed25/go.mod h1:QdAigJualFJxenKYhTozq0Xi6qY7OKXK7o/dfWPk8q4=
 github.com/remyoudompheng/bigfft v0.0.0-20170806203942-52369c62f446/go.mod h1:uYEyJGbgTkfkS4+E/PavXkNJcbFIpEtjt2B0KDQ5+9M=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
