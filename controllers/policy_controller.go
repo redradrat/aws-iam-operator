@@ -126,24 +126,23 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// RECONCILE THE RESOURCE
 
-	// if there is already an ARN in our status, then we recreate the object completely
-	// (because AWS only supports description updates)
+	// if there is already an ARN in our status, then we update the object
 	if policy.Status.ARN != "" {
-		// Delete the actual AWS Object and pass the cleanup function
-		statusWriter, err := DeleteAWSObject(iamsvc, ins, cleanupFunc)
+		// Update the actual AWS Object and pass the DoNothing function
+		statusWriter, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
 		statusWriter(ins, &policy, ctx, r.Status(), log)
 		if err != nil {
-			// we had an error during AWS Object deletion... so we return here to retry
-			log.Error(err, "error while deleting Policy during reconciliation")
+			// we had an error during AWS Object update... so we return here to retry
+			log.Error(err, "error while updating Policy during reconciliation")
 			return ctrl.Result{}, err
 		}
-	}
-
-	statusWriter, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
-	statusWriter(ins, &policy, ctx, r.Status(), log)
-	if err != nil {
-		log.Error(err, "error while creating Policy during reconciliation")
-		return ctrl.Result{}, err
+	} else {
+		statusWriter, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
+		statusWriter(ins, &policy, ctx, r.Status(), log)
+		if err != nil {
+			log.Error(err, "error while creating Policy during reconciliation")
+			return ctrl.Result{}, err
+		}
 	}
 
 	log.Info(fmt.Sprintf("Created Policy '%s'", policy.Status.ARN))
