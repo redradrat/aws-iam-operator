@@ -27,7 +27,7 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: redradrat/aws-iam-controller:latest
+        image: redradrat/aws-iam-operator:latest
         name: manager
         resources:
           limits:
