@@ -1,7 +1,5 @@
 # AWS IAM Operator
 
-[![Join the chat at https://gitter.im/aws-iam-operator/community](https://badges.gitter.im/aws-iam-operator/community.svg)](https://gitter.im/aws-iam-operator/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 An operator that enables AWS IAM management via Kubernetes custom resources.
 
 ## Installation
@@ -37,7 +35,7 @@ The controller manager has a couple of input options, which you can set as param
         args:
         - --enable-leader-election # For HA setup
         - --resource-prefix "testcluster-" # set a prefix to all created AWS resources (e.g. "testcluster-" -> "testcluster-user")
-        image: redradrat/aws-iam-controller:latest
+        image: redradrat/aws-iam-operator:latest
         name: manager
 ```
 
