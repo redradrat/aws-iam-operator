@@ -33,6 +33,7 @@ import (
 // PolicyAssignmentReconciler reconciles a PolicyAssignment object
 type PolicyAttachmentReconciler struct {
 	client.Client
+	Region string
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
@@ -75,7 +76,7 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
-	iamsvc, err := IAMService()
+	iamsvc, err := IAMService(r.Region)
 	if err != nil {
 		return ctrl.Result{}, errWithStatus(&policyattachment, err, r.Status(), ctx)
 	}

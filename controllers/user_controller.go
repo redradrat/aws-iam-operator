@@ -47,6 +47,7 @@ const (
 type UserReconciler struct {
 	client.Client
 	Log            logr.Logger
+	Region         string
 	Scheme         *runtime.Scheme
 	ResourcePrefix string
 }
@@ -83,7 +84,7 @@ func (r *UserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	usersFinalizer := "user.aws-iam.redradrat.xyz"
 
 	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
-	iamsvc, err := IAMService()
+	iamsvc, err := IAMService(r.Region)
 	if err != nil {
 		return ctrl.Result{}, errWithStatus(&user, err, r.Status(), ctx)
 	}

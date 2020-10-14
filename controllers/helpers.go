@@ -94,9 +94,9 @@ func errWithStatus(obj AWSObjectStatusResource, err error, sw client.StatusWrite
 	return origerr
 }
 
-func IAMService() (*awsiam.IAM, error) {
+func IAMService(region string) (*awsiam.IAM, error) {
 	session, err := session.NewSession(&awssdk.Config{
-		Region: awssdk.String("eu-west-1")},
+		Region: awssdk.String(region)},
 	)
 	if err != nil {
 		return nil, err

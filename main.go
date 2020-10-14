@@ -80,6 +80,7 @@ func main() {
 	if err = (&controllers.RoleReconciler{
 		Client:         mgr.GetClient(),
 		Log:            ctrl.Log.WithName("controllers").WithName("Role"),
+		Region:         region,
 		Scheme:         mgr.GetScheme(),
 		ResourcePrefix: resourcePrefix,
 	}).SetupWithManager(mgr); err != nil {
@@ -89,6 +90,7 @@ func main() {
 	if err = (&controllers.PolicyReconciler{
 		Client:         mgr.GetClient(),
 		Log:            ctrl.Log.WithName("controllers").WithName("Policy"),
+		Region:         region,
 		Scheme:         mgr.GetScheme(),
 		ResourcePrefix: resourcePrefix,
 	}).SetupWithManager(mgr); err != nil {
@@ -98,6 +100,7 @@ func main() {
 	if err = (&controllers.PolicyAttachmentReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("PolicyAttachment"),
+		Region: region,
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PolicyAttachment")
@@ -106,6 +109,7 @@ func main() {
 	if err = (&controllers.GroupReconciler{
 		Client:         mgr.GetClient(),
 		Log:            ctrl.Log.WithName("controllers").WithName("Group"),
+		Region:         region,
 		Scheme:         mgr.GetScheme(),
 		ResourcePrefix: resourcePrefix,
 	}).SetupWithManager(mgr); err != nil {
@@ -115,6 +119,7 @@ func main() {
 	if err = (&controllers.UserReconciler{
 		Client:         mgr.GetClient(),
 		Log:            ctrl.Log.WithName("controllers").WithName("User"),
+		Region:         region,
 		Scheme:         mgr.GetScheme(),
 		ResourcePrefix: resourcePrefix,
 	}).SetupWithManager(mgr); err != nil {

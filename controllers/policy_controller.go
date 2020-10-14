@@ -35,6 +35,7 @@ import (
 type PolicyReconciler struct {
 	client.Client
 	Log            logr.Logger
+	Region         string
 	Scheme         *runtime.Scheme
 	ResourcePrefix string
 }
@@ -64,7 +65,7 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
-	iamsvc, err := IAMService()
+	iamsvc, err := IAMService(r.Region)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
