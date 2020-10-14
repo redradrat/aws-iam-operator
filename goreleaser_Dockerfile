@@ -1,0 +1,6 @@
+FROM gcr.io/distroless/static:nonroot
+WORKDIR /
+COPY aws-iam-operator .
+USER nonroot:nonroot
+
+ENTRYPOINT ["/aws-iam-operator"]

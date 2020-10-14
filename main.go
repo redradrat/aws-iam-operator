@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,8 +34,10 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme            = runtime.NewScheme()
+	setupLog          = ctrl.Log.WithName("setup")
+	operatorversion   string
+	operatorbuilddate string
 )
 
 func init() {
@@ -59,6 +62,8 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+
+	ctrl.Log.Info(fmt.Sprintf("aws-iam-operator version: %s (built: %s)", operatorversion, operatorbuilddate))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
