@@ -154,22 +154,50 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 }
 
 func checkPolicyAttachmentRefs(policyAttachment *iamv1beta1.PolicyAttachment, c client.Client, ctx context.Context) error {
-	roles := iamv1beta1.RoleList{}
-	if err := c.List(ctx, &roles); err != nil {
-		return err
-	}
 	policies := iamv1beta1.PolicyList{}
 	if err := c.List(ctx, &policies); err != nil {
 		return err
 	}
 
-	foundrole := false
+	foundtarget := false
 	foundpolicy := false
-	for _, role := range roles.Items {
-		tarref := policyAttachment.Spec.TargetReference
-		if tarref.Name == role.Name && tarref.Namespace == role.Namespace {
-			foundrole = true
+	targetReferenceType := policyAttachment.Spec.TargetReference.Type
+	switch targetReferenceType {
+	case iamv1beta1.RoleTargetType:
+		roles := iamv1beta1.RoleList{}
+		if err := c.List(ctx, &roles); err != nil {
+			return err
 		}
+		for _, role := range roles.Items {
+			tarref := policyAttachment.Spec.TargetReference
+			if tarref.Name == role.Name && tarref.Namespace == role.Namespace {
+				foundtarget = true
+			}
+		}
+	case iamv1beta1.UserTargetType:
+		users := iamv1beta1.UserList{}
+		if err := c.List(ctx, &users); err != nil {
+			return err
+		}
+		for _, user := range users.Items {
+			tarref := policyAttachment.Spec.TargetReference
+			if tarref.Name == user.Name && tarref.Namespace == user.Namespace {
+				foundtarget = true
+			}
+		}
+	case iamv1beta1.GroupTargetType:
+		groups := iamv1beta1.GroupList{}
+		if err := c.List(ctx, &groups); err != nil {
+			return err
+		}
+		for _, group := range groups.Items {
+			tarref := policyAttachment.Spec.TargetReference
+			if tarref.Name == group.Name && tarref.Namespace == group.Namespace {
+				foundtarget = true
+			}
+		}
+	default:
+		return fmt.Errorf("defined target reference type '%s' is unknown", targetReferenceType)
 	}
 	for _, policy := range policies.Items {
 		polref := policyAttachment.Spec.PolicyReference
@@ -177,7 +205,7 @@ func checkPolicyAttachmentRefs(policyAttachment *iamv1beta1.PolicyAttachment, c 
 			foundpolicy = true
 		}
 	}
-	if !(foundrole == true && foundpolicy == true) {
+	if !(foundtarget == true && foundpolicy == true) {
 		err := fmt.Errorf(fmt.Sprintf("defined references do not exist for PolicyAttachment '%s/%s", policyAttachment.Name, policyAttachment.Namespace))
 		return err
 	}
@@ -214,7 +242,8 @@ func getPolicyAttachmentARNs(policyAttachment *iamv1beta1.PolicyAttachment, ctx 
 		return policyArn, targetArn, err
 	}
 
-	switch policyAttachment.Spec.TargetReference.Type {
+	targetReferenceType := policyAttachment.Spec.TargetReference.Type
+	switch targetReferenceType {
 	case iamv1beta1.RoleTargetType:
 		role := iamv1beta1.Role{}
 		if err := c.Get(ctx, client.ObjectKey{Name: tarref.Name, Namespace: tarref.Namespace}, &role); err != nil {
@@ -227,7 +256,32 @@ func getPolicyAttachmentARNs(policyAttachment *iamv1beta1.PolicyAttachment, ctx 
 		if err != nil {
 			return policyArn, targetArn, err
 		}
-
+	case iamv1beta1.UserTargetType:
+		user := iamv1beta1.User{}
+		if err := c.Get(ctx, client.ObjectKey{Name: tarref.Name, Namespace: tarref.Namespace}, &user); err != nil {
+			return policyArn, targetArn, err
+		}
+		if user.Status.ARN == "" {
+			return policyArn, targetArn, fmt.Errorf("ARN is empty in status for target reference")
+		}
+		targetArn, err = awsarn.Parse(user.Status.ARN)
+		if err != nil {
+			return policyArn, targetArn, err
+		}
+	case iamv1beta1.GroupTargetType:
+		group := iamv1beta1.Group{}
+		if err := c.Get(ctx, client.ObjectKey{Name: tarref.Name, Namespace: tarref.Namespace}, &group); err != nil {
+			return policyArn, targetArn, err
+		}
+		if group.Status.ARN == "" {
+			return policyArn, targetArn, fmt.Errorf("ARN is empty in status for target reference")
+		}
+		targetArn, err = awsarn.Parse(group.Status.ARN)
+		if err != nil {
+			return policyArn, targetArn, err
+		}
+	default:
+		return policyArn, targetArn, fmt.Errorf("defined target reference type '%s' is unknown", targetReferenceType)
 	}
 
 	return policyArn, targetArn, nil
