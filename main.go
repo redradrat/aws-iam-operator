@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -53,8 +54,10 @@ func main() {
 	var region string
 	var resourcePrefix string
 	var enableLeaderElection bool
+	var requeueInterval time.Duration
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&region, "region", "eu-west-1", "The AWS region to use.")
+	flag.DurationVar(&requeueInterval, "requeue-interaval", 30*time.Second, "The requeue interval to use do reconcile specific resources.")
 	flag.StringVar(&resourcePrefix, "resource-prefix", "", "A prefix to prepend to all created AWS resources.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
@@ -79,6 +82,7 @@ func main() {
 
 	if err = (&controllers.RoleReconciler{
 		Client:         mgr.GetClient(),
+		Interval:       requeueInterval,
 		Log:            ctrl.Log.WithName("controllers").WithName("Role"),
 		Region:         region,
 		Scheme:         mgr.GetScheme(),

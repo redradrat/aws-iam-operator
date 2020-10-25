@@ -113,6 +113,8 @@ spec:
           type: object
         status:
           properties:
+            ReadAssumeRolePolicyVersion:
+              type: string
             arn:
               description: Arn holds the concrete AWS ARN of the managed policy
               type: string
@@ -132,6 +134,7 @@ spec:
               description: State holds the current state of the resource
               type: string
           required:
+          - ReadAssumeRolePolicyVersion
           - arn
           - lastSyncAttempt
           - message

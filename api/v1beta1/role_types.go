@@ -55,8 +55,13 @@ type Role struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RoleSpec        `json:"spec,omitempty"`
-	Status AWSObjectStatus `json:"status,omitempty"`
+	Spec   RoleSpec   `json:"spec,omitempty"`
+	Status RoleStatus `json:"status,omitempty"`
+}
+
+type RoleStatus struct {
+	AWSObjectStatus             `json:",inline"`
+	ReadAssumeRolePolicyVersion string `json:"ReadAssumeRolePolicyVersion"`
 }
 
 // +kubebuilder:object:root=true

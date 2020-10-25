@@ -8,7 +8,7 @@ import (
 )
 
 func (r *Role) GetStatus() *AWSObjectStatus {
-	return &r.Status
+	return &r.Status.AWSObjectStatus
 }
 
 func (r *Role) RuntimeObject() runtime.Object {

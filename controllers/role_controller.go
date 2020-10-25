@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/redradrat/cloud-objects/aws"
@@ -38,6 +39,7 @@ import (
 // RoleReconciler reconciles a Role object
 type RoleReconciler struct {
 	client.Client
+	Interval       time.Duration
 	Log            logr.Logger
 	Region         string
 	Scheme         *runtime.Scheme
@@ -64,10 +66,21 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// return if only status/metadata updated
-	if role.Status.ObservedGeneration == role.ObjectMeta.Generation && role.Status.State == iamv1beta1.OkSyncState {
-		return ctrl.Result{}, nil
+	// get the policy doc
+	polDoc, resVer, err := getPolicyDoc(&role, r.Client, ctx)
+	if err != nil {
+		return ctrl.Result{}, errWithStatus(&role, err, r.Status(), ctx)
+	}
+
+	reconcileUnneccessary :=
+		role.Status.ObservedGeneration == role.ObjectMeta.Generation &&
+			role.Status.State == iamv1beta1.OkSyncState &&
+			role.Status.ReadAssumeRolePolicyVersion == resVer
+
+	if reconcileUnneccessary {
+		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	} else {
+		role.Status.ReadAssumeRolePolicyVersion = resVer
 		role.Status.ObservedGeneration = role.ObjectMeta.Generation
 		r.Status().Update(ctx, &role)
 	}
@@ -77,12 +90,6 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
 	iamsvc, err := IAMService(r.Region)
-	if err != nil {
-		return ctrl.Result{}, errWithStatus(&role, err, r.Status(), ctx)
-	}
-
-	// get the policy doc
-	polDoc, err := getPolicyDoc(&role, r.Client, ctx)
 	if err != nil {
 		return ctrl.Result{}, errWithStatus(&role, err, r.Status(), ctx)
 	}
@@ -137,7 +144,7 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 
 		// Stop reconciliation as the item is being deleted
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	}
 
 	// RECONCILE THE RESOURCE
@@ -185,7 +192,7 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: r.Interval}, nil
 }
 
 // Returns a function, that does everything necessary before we can delete our actual Role (cleanup)
@@ -213,28 +220,33 @@ func (r *RoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func getPolicyDoc(role *iamv1beta1.Role, c client.Client, ctx context.Context) (iam.PolicyDocument, error) {
+// this helper returns the referenced policy document, but if it's a reference, also returns its resource version as
+// string. This is so we can decide, whether we need to do reconciliation. Usually we would discard as no change, but
+// in this case, we don't know whether a reference might have changed.
+func getPolicyDoc(role *iamv1beta1.Role, c client.Client, ctx context.Context) (iam.PolicyDocument, string, error) {
+	var resourceVersion string
 	var p iam.PolicyDocument
 	if len(role.Spec.AssumeRolePolicy) != 0 {
 		if !reflect.DeepEqual(role.Spec.AssumeRolePolicyReference, iamv1beta1.ResourceReference{}) {
 			err := fmt.Errorf("only one specification of AssumeRolePolicy and AssumeRolePolicyReference is allowed")
-			return p, err
+			return p, "", err
 		}
 		p = role.Marshal()
 	}
 	if len(role.Spec.AssumeRolePolicy) == 0 {
 		if reflect.DeepEqual(role.Spec.AssumeRolePolicyReference, iamv1beta1.ResourceReference{}) {
 			err := fmt.Errorf("specification of either AssumeRolePolicy or AssumeRolePolicyReference is mandatory")
-			return p, err
+			return p, "", err
 		}
 		var assumeRolePolicy iamv1beta1.AssumeRolePolicy
 		arpr := role.Spec.AssumeRolePolicyReference
 		if err := c.Get(ctx, client.ObjectKey{Name: arpr.Name, Namespace: arpr.Namespace}, &assumeRolePolicy); err != nil {
-			return p, err
+			return p, "", err
 		}
+		resourceVersion = assumeRolePolicy.GetResourceVersion()
 		p = assumeRolePolicy.Marshal()
 	}
-	return p, nil
+	return p, resourceVersion, nil
 }
 
 func createRoleServiceAccount(role iamv1beta1.Role, ctx context.Context, client client.Client, ownerRef metav1.OwnerReference) error {
