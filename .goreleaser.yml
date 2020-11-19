@@ -27,6 +27,8 @@ dockers:
   - image_templates:
     - "redradrat/aws-iam-operator:{{ .Tag }}"
     - "redradrat/aws-iam-operator:latest"
+    binaries:
+      - aws-iam-operator
     goos: linux
     dockerfile: goreleaser_Dockerfile
 checksum:
@@ -39,7 +41,6 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
-
 env_files:
   # use only one or release will fail!
   github_token: ~/.tokens/goreleaser_github
