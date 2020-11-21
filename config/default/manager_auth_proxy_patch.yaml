@@ -3,7 +3,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aws-iam-controller-manager
+  name: aws-iam-operator-manager
   namespace: system
 spec:
   template:

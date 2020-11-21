@@ -2,30 +2,28 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    control-plane: aws-iam-controller-manager
+    control-plane: aws-iam-operator-manager
   name: system
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aws-iam-controller-manager
+  name: aws-iam-operator-manager
   namespace: system
   labels:
-    control-plane: aws-iam-controller-manager
+    control-plane: aws-iam-operator-manager
 spec:
   selector:
     matchLabels:
-      control-plane: aws-iam-controller-manager
+      control-plane: aws-iam-operator-manager
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: aws-iam-controller-manager
+        control-plane: aws-iam-operator-manager
     spec:
       containers:
-      - command:
-        - /manager
-        args:
+      - args:
         - --enable-leader-election
         image: redradrat/aws-iam-operator:latest
         name: manager
