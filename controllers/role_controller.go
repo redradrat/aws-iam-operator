@@ -97,14 +97,18 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// new role instance
 	var ins *iam.RoleInstance
 	roleName := r.ResourcePrefix + role.Name
+	var duration int64 = 3600
+	if role.Spec.MaxSessionDuration != nil {
+		duration = *role.Spec.MaxSessionDuration
+	}
 	if role.Status.ARN != "" {
 		parsedArn, err := aws.ARNify(role.Status.ARN)
 		if err != nil {
 			return ctrl.Result{}, errWithStatus(&role, fmt.Errorf("ARN in Role status is not valid/parsable"), r.Status(), ctx)
 		}
-		ins = iam.NewExistingRoleInstance(roleName, role.Spec.Description, polDoc, parsedArn[len(parsedArn)-1])
+		ins = iam.NewExistingRoleInstance(roleName, role.Spec.Description, duration, polDoc, parsedArn[len(parsedArn)-1])
 	} else {
-		ins = iam.NewRoleInstance(roleName, role.Spec.Description, polDoc)
+		ins = iam.NewRoleInstance(roleName, role.Spec.Description, duration, polDoc)
 	}
 
 	cleanupFunc := roleCleanup(r, ctx, role)

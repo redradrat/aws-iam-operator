@@ -37,6 +37,11 @@ type RoleSpec struct {
 	CreateServiceAccount bool `json:"createServiceAccount,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +nullable
+	// MaxSessionDuration specifies the maximum duration a session with this role assumed can last
+	MaxSessionDuration *int64 `json:"maxSessionDuration,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	//
 	// Description holds the description string for the Role
 	Description string `json:"description,omitempty"`

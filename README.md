@@ -72,6 +72,7 @@ spec:
         "StringEquals":
           "blablabla": "system:serviceaccount:kube-system:aws-cluster-autoscaler"
   createServiceAccount: true
+  maxSessionDuration: 3600
 ```
 
 Resulting `ServiceAccount`:
