@@ -110,6 +110,12 @@ spec:
             description:
               description: Description holds the description string for the Role
               type: string
+            maxSessionDuration:
+              description: MaxSessionDuration specifies the maximum duration a session
+                with this role assumed can last
+              format: int64
+              nullable: true
+              type: integer
           type: object
         status:
           properties:

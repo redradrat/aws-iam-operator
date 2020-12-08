@@ -81,8 +81,6 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{RequeueAfter: r.Interval}, nil
 	} else {
 		role.Status.ReadAssumeRolePolicyVersion = resVer
-		role.Status.ObservedGeneration = role.ObjectMeta.Generation
-		r.Status().Update(ctx, &role)
 	}
 
 	// the finalizer for deleting the actual aws resources
@@ -194,6 +192,12 @@ func (r *RoleReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err = createRoleServiceAccount(role, ctx, r.Client, ownerRef); err != nil {
 		log.Error(err, "unable to create ServiceAccount for Role")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// Update Generation
+	role.Status.ObservedGeneration = role.ObjectMeta.Generation
+	if err := r.Status().Update(ctx, &role); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{RequeueAfter: r.Interval}, nil

@@ -1,0 +1,12 @@
+apiVersion: aws-iam.redradrat.xyz/v1beta1
+kind: PolicyAttachment
+metadata:
+  name: policyattachment-sample
+spec:
+  policy:
+    name: policy-sample
+    namespace: default
+  target:
+    type: User
+    name: user-sample
+    namespace: default

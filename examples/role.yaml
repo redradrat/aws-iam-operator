@@ -1,0 +1,11 @@
+apiVersion: aws-iam.redradrat.xyz/v1beta1
+kind: Role
+metadata:
+  name: role-sample
+  namespace: default
+spec:
+  assumeRolePolicyRef:
+    name: assumerolepolicy-sample
+    namespace: default
+  createServiceAccount: true
+  maxSessionDuration: 3600

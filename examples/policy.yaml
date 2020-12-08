@@ -1,0 +1,15 @@
+apiVersion: aws-iam.redradrat.xyz/v1beta1
+kind: Policy
+metadata:
+  name: policy-sample
+spec:
+  statement:
+    - sid: someid
+      effect: "Allow"
+      actions:
+        - "xxxx:DescribeSomething"
+      resources:
+        - "*"
+      conditions:
+        "StringEquals":
+          "aws:SourceIp": "172.0.0.1"

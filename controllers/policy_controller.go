@@ -59,9 +59,6 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// return if only status/metadata updated
 	if policy.Status.ObservedGeneration == policy.ObjectMeta.Generation && policy.Status.State == iamv1beta1.OkSyncState {
 		return ctrl.Result{}, nil
-	} else {
-		policy.Status.ObservedGeneration = policy.ObjectMeta.Generation
-		r.Status().Update(ctx, &policy)
 	}
 
 	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
@@ -144,6 +141,11 @@ func (r *PolicyReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			log.Error(err, "error while creating Policy during reconciliation")
 			return ctrl.Result{}, err
 		}
+	}
+
+	policy.Status.ObservedGeneration = policy.ObjectMeta.Generation
+	if err := r.Status().Update(ctx, &policy); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	log.Info(fmt.Sprintf("Created Policy '%s'", policy.Status.ARN))

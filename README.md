@@ -62,6 +62,11 @@ metadata:
   name: role-sample
   namespace: default
 spec:
+  // Either
+  assumeRolePolicyRef:
+    name: assumerolepolicy-sample
+    namespace: default
+  // OR
   assumeRolePolicy:
     - effect: "Allow"
       principal:

@@ -82,9 +82,6 @@ func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	group.Status.ObservedGeneration = group.ObjectMeta.Generation
-	r.Status().Update(ctx, &group)
-
 	// the finalizer for deleting the actual aws resources
 	groupsFinalizer := "group.aws-aws-iam.redradrat.xyz"
 
@@ -174,6 +171,11 @@ func (r *GroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if err = ins.AddUser(iamsvc, parsedArn[len(parsedArn)-1]); err != nil {
 			return ctrl.Result{}, errWithStatus(&group, err, r.Status(), ctx)
 		}
+	}
+
+	group.Status.ObservedGeneration = group.ObjectMeta.Generation
+	if err := r.Status().Update(ctx, &group); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

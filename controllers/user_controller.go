@@ -75,9 +75,6 @@ func (r *UserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// return if only status/metadata updated
 	if user.Status.ObservedGeneration == user.ObjectMeta.Generation && user.Status.State == iamv1beta1.OkSyncState {
 		return ctrl.Result{}, nil
-	} else {
-		user.Status.ObservedGeneration = user.ObjectMeta.Generation
-		r.Status().Update(ctx, &user)
 	}
 
 	// the finalizer for deleting the actual aws resources
@@ -225,6 +222,9 @@ func (r *UserReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			r.Status().Update(ctx, &user)
 		}
 	}
+
+	user.Status.ObservedGeneration = user.ObjectMeta.Generation
+	r.Status().Update(ctx, &user)
 
 	log.Info(fmt.Sprintf("Created User '%s'", user.Status.ARN))
 	return ctrl.Result{}, nil

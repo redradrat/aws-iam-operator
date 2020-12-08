@@ -55,9 +55,6 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// return if only status/metadata updated
 	if policyattachment.Status.ObservedGeneration == policyattachment.ObjectMeta.Generation && policyattachment.Status.State == iamv1beta1.OkSyncState {
 		return ctrl.Result{}, nil
-	} else {
-		policyattachment.Status.ObservedGeneration = policyattachment.ObjectMeta.Generation
-		r.Status().Update(ctx, &policyattachment)
 	}
 
 	// the finalizer for deleting the actual aws resources
@@ -146,6 +143,11 @@ func (r *PolicyAttachmentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	if err != nil {
 		log.Error(err, "error while creating PolicyAttachment during reconciliation")
 		return ctrl.Result{}, errWithStatus(&policyattachment, err, r.Status(), ctx)
+	}
+
+	policyattachment.Status.ObservedGeneration = policyattachment.ObjectMeta.Generation
+	if err := r.Status().Update(ctx, &policyattachment); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	log.Info(fmt.Sprintf("Created PolicyAttachment on target '%s'", policyattachment.Status.ARN))
