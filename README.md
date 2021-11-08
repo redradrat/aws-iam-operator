@@ -17,9 +17,9 @@ kubectl kustomize 'github.com/redradrat/aws-iam-operator/config/crd?ref=GITREF' 
 
 **Controllers**
 
-The controller deployment can be applied to the cluster with kuebctl:
+The controller deployment incl. RBAC & CRD can be applied to the cluster with kubectl:
 ```shell script
-kubectl kustomize github.com/redradrat/aws-iam-operator/config/manager?ref=master | kubectl apply -f -
+kubectl kustomize 'github.com/redradrat/aws-iam-operator/config/default?ref=master' | kubectl apply -f -
 ```
 
 ### Controller Manager Options
