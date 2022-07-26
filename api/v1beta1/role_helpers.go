@@ -1,17 +1,16 @@
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"github.com/redradrat/cloud-objects/aws/iam"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *Role) GetStatus() *AWSObjectStatus {
 	return &r.Status.AWSObjectStatus
 }
 
-func (r *Role) RuntimeObject() runtime.Object {
+func (r *Role) RuntimeObject() client.Object {
 	return r
 }
 

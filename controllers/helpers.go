@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/go-logr/logr"
 	"github.com/redradrat/cloud-objects/aws/iam"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/redradrat/cloud-objects/aws"
@@ -20,7 +19,7 @@ import (
 
 type AWSObjectStatusResource interface {
 	GetStatus() *iamv1beta1.AWSObjectStatus
-	RuntimeObject() runtime.Object
+	RuntimeObject() client.Object
 }
 
 // Helper functions to check and remove string from a slice of strings.
