@@ -2,18 +2,17 @@ package v1beta1
 
 import (
 	"fmt"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/redradrat/cloud-objects/aws/iam"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (pa *PolicyAttachment) GetStatus() *AWSObjectStatus {
 	return &pa.Status
 }
 
-func (pa *PolicyAttachment) RuntimeObject() runtime.Object {
+func (pa *PolicyAttachment) RuntimeObject() client.Object {
 	return pa
 }
 

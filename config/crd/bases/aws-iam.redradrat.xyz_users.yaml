@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.5
+    controller-gen.kubebuilder.io/version: v0.9.0
   creationTimestamp: null
   name: users.aws-iam.redradrat.xyz
 spec:
@@ -18,12 +17,7 @@ spec:
     singular: user
   scope: Namespaced
   versions:
-  - name: v1beta1
-    served: true
-    storage: true
-    subresources:
-      status: {}
-    additionalPrinterColumns:
+  - additionalPrinterColumns:
     - jsonPath: .status.arn
       name: ARN
       type: string
@@ -36,6 +30,7 @@ spec:
     - jsonPath: .status.lastSyncAttempt
       name: Last Sync
       type: string
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: User is the Schema for the users API
@@ -60,8 +55,8 @@ spec:
                   in AWS and creates a user/pass secret
                 type: boolean
               createProgrammaticAccess:
-                description: CreateProgrammaticAccess triggers the creation of API creds
-                  in AWS and creates a cred secret
+                description: CreateProgrammaticAccess triggers the creation of API
+                  creds in AWS and creates a cred secret
                 type: boolean
             type: object
           status:
@@ -73,19 +68,19 @@ spec:
                 description: LastSyncTime holds the timestamp of the last sync attempt
                 type: string
               loginProfileCreated:
-                description: LoginProfileCreated holds info about whether or not a LoginProfile
-                  has been created for this user
+                description: LoginProfileCreated holds info about whether or not a
+                  LoginProfile has been created for this user
                 type: boolean
               loginProfileSecret:
-                description: LoginProfileSecret holds the reference to the created LoginProfile
-                  Secret
+                description: LoginProfileSecret holds the reference to the created
+                  LoginProfile Secret
                 properties:
                   name:
-                    description: Name is unique within a namespace to reference a secret
-                      resource.
+                    description: name is unique within a namespace to reference a
+                      secret resource.
                     type: string
                   namespace:
-                    description: Namespace defines the space within which the secret
+                    description: namespace defines the space within which the secret
                       name must be unique.
                     type: string
                 type: object
@@ -99,19 +94,19 @@ spec:
                 format: int64
                 type: integer
               programmaticAccessCreated:
-                description: ProgrammaticAccessCreated holds info about whether or not
-                  programmatic access credentials have been created for this user
+                description: ProgrammaticAccessCreated holds info about whether or
+                  not programmatic access credentials have been created for this user
                 type: boolean
               programmaticAccessSecret:
                 description: ProgrammaticAccessSecret holds the reference to the created
                   LoginProfile Secret
                 properties:
                   name:
-                    description: Name is unique within a namespace to reference a secret
-                      resource.
+                    description: name is unique within a namespace to reference a
+                      secret resource.
                     type: string
                   namespace:
-                    description: Namespace defines the space within which the secret
+                    description: namespace defines the space within which the secret
                       name must be unique.
                     type: string
                 type: object
@@ -126,9 +121,7 @@ spec:
             - state
             type: object
         type: object
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
+    served: true
+    storage: true
+    subresources:
+      status: {}

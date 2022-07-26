@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.5
+    controller-gen.kubebuilder.io/version: v0.9.0
   creationTimestamp: null
   name: assumerolepolicies.aws-iam.redradrat.xyz
 spec:
@@ -17,8 +16,6 @@ spec:
   scope: Namespaced
   versions:
   - name: v1beta1
-    served: true
-    storage: true
     schema:
       openAPIV3Schema:
         description: AssumeRolePolicy is the Schema for the assumerolepolicies API
@@ -39,12 +36,13 @@ spec:
             description: AssumeRolePolicySpec defines the desired state of AssumeRolePolicy
             properties:
               statement:
-                description: Statements holds the list of all the policy statement entries
+                description: Statements holds the list of all the policy statement
+                  entries
                 items:
                   properties:
                     actions:
-                      description: Actions holds the desired effect the statement should
-                        ensure
+                      description: Actions holds the desired effect the statement
+                        should ensure
                       items:
                         type: string
                       type: array
@@ -64,14 +62,14 @@ spec:
                       additionalProperties:
                         type: string
                       description: Principal denotes an account, user, role, or federated
-                        user to which you would like to allow or deny access with a
-                        resource-based policy
+                        user to which you would like to allow or deny access with
+                        a resource-based policy
                       type: object
                     resources:
                       description: Resources denotes an a list of resources to which
-                        the actions apply. If you do not set this value, then the resource
-                        to which the action applies is the resource to which the policy
-                        is attached to
+                        the actions apply. If you do not set this value, then the
+                        resource to which the action applies is the resource to which
+                        the policy is attached to
                       items:
                         type: string
                       type: array
@@ -85,9 +83,5 @@ spec:
             description: AssumeRolePolicyStatus defines the observed state of AssumeRolePolicy
             type: object
         type: object
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
+    served: true
+    storage: true
