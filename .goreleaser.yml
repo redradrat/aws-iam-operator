@@ -59,7 +59,7 @@ docker_manifests:
     image_templates:
       - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-arm64
       - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-amd64
-  - name_template: redradrat/aws-iam-operator:latest
+  - name_template: ghcr.io/redradrat/aws-iam-operator:latest
     image_templates:
       - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-arm64
       - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-amd64
