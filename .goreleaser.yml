@@ -29,7 +29,7 @@ dockers:
     - "redradrat/aws-iam-operator:latest"
     - "docker.pkg.github.com/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}"
     - "docker.pkg.github.com/redradrat/aws-iam-operator/aws-iam-operator:latest"
-    binaries:
+    ids:
       - aws-iam-operator
     goos: linux
     dockerfile: goreleaser_Dockerfile
