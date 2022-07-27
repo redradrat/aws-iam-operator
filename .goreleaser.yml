@@ -46,6 +46,23 @@ dockers:
     build_flag_templates:
       - "--platform linux/arm64"
     dockerfile: goreleaser_Dockerfile
+docker_manifests:
+  - name_template: redradrat/aws-iam-operator:{{ .Tag }}
+    image_templates:
+      - redradrat/aws-iam-operator:{{ .Tag }}-arm64
+      - redradrat/aws-iam-operator:{{ .Tag }}-amd64
+  - name_template: redradrat/aws-iam-operator:latest
+    image_templates:
+      - redradrat/aws-iam-operator:latest-arm64
+      - redradrat/aws-iam-operator:latest-amd64
+  - name_template: ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}
+    image_templates:
+      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-arm64
+      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-amd64
+  - name_template: redradrat/aws-iam-operator:latest
+    image_templates:
+      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-arm64
+      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-amd64
 checksum:
   name_template: 'checksums.txt'
 snapshot:
