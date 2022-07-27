@@ -29,11 +29,11 @@ dockers:
       - "redradrat/aws-iam-operator:latest-amd64"
       - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-amd64"
       - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-amd64"
-    use: buildx
     goos: linux
     goarch: amd64
+    use: buildx
     build_flag_templates:
-      - "--platform linux/amd64"
+      - "--platform=linux/amd64"
     dockerfile: goreleaser_Dockerfile
   - image_templates:
       - "redradrat/aws-iam-operator:{{ .Tag }}-arm64"
@@ -44,7 +44,7 @@ dockers:
     goos: linux
     goarch: arm64
     build_flag_templates:
-      - "--platform linux/arm64"
+      - "--platform=linux/arm64"
     dockerfile: goreleaser_Dockerfile
 docker_manifests:
   - name_template: redradrat/aws-iam-operator:{{ .Tag }}
