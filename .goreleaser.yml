@@ -27,8 +27,8 @@ dockers:
   - image_templates:
     - "redradrat/aws-iam-operator:{{ .Tag }}"
     - "redradrat/aws-iam-operator:latest"
-    - "docker.pkg.github.com/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}"
-    - "docker.pkg.github.com/redradrat/aws-iam-operator/aws-iam-operator:latest"
+    - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}"
+    - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest"
     ids:
       - aws-iam-operator
     goos: linux
