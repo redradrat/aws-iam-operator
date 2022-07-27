@@ -25,16 +25,26 @@ archives:
       amd64: x86_64
 dockers:
   - image_templates:
-    - "redradrat/aws-iam-operator:{{ .Tag }}"
-    - "redradrat/aws-iam-operator:latest"
-    - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}"
-    - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest"
-    ids:
-      - aws-iam-operator
-    goos: linux
+      - "redradrat/aws-iam-operator:{{ .Tag }}-amd64"
+      - "redradrat/aws-iam-operator:latest-amd64"
+      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-amd64"
+      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-amd64"
     use: buildx
+    goos: linux
+    goarch: amd64
     build_flag_templates:
-      - "--platform linux/arm/v7,linux/arm64/v8,linux/amd64,linux/arm64"
+      - "--platform linux/amd64"
+    dockerfile: goreleaser_Dockerfile
+  - image_templates:
+      - "redradrat/aws-iam-operator:{{ .Tag }}-arm64"
+      - "redradrat/aws-iam-operator:latest-arm64"
+      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-arm64"
+      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-arm64"
+    use: buildx
+    goos: linux
+    goarch: arm64
+    build_flag_templates:
+      - "--platform linux/arm64"
     dockerfile: goreleaser_Dockerfile
 checksum:
   name_template: 'checksums.txt'
