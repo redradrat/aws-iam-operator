@@ -1,14 +1,7 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    control-plane: aws-iam-operator-manager
-  name: system
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: aws-iam-operator-manager
+  name: manager
   namespace: system
   labels:
     control-plane: aws-iam-operator-manager
