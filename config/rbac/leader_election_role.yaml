@@ -30,3 +30,21 @@ rules:
   - events
   verbs:
   - create
+- apiGroups:
+    - coordination.k8s.io
+  resources:
+    - leases
+  verbs:
+    - get
+    - update
+    - create
+- apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - create
+    - delete
+    - update
+    - get
+    - list
