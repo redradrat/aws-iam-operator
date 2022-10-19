@@ -1,8 +1,11 @@
+---
 # This is an example goreleaser.yaml file with some sane defaults.
 # Make sure to check the documentation at http://goreleaser.com
+project_name: aws-iam-operator
 before:
   hooks:
     # You may remove this if you don't use go modules.
+    - go mod tidy
     - go mod download
     # you may remove this if you don't need go generate
     - go generate ./...
@@ -13,64 +16,121 @@ builds:
       - linux
       - windows
       - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+      - "6"
     ldflags:
       - -s -w # strip symbols, reduces binary size
       - -X main.operatorversion={{.Version}}
       - -X main.operatorbuilddate={{.Date}}
+
 archives:
-  - name_template: >-
-      {{- .ProjectName }}_
-      {{- .Version }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
+  - id: default
+    format_overrides:
+      - goos: windows
+        format: zip
+
 dockers:
-  - image_templates:
-      - "redradrat/aws-iam-operator:{{ .Tag }}-amd64"
-      - "redradrat/aws-iam-operator:latest-amd64"
-      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-amd64"
-      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-amd64"
+  - use: buildx
     goos: linux
     goarch: amd64
-    use: buildx
+    dockerfile: goreleaser.Dockerfile
+    image_templates:
+      - redradrat/{{ .ProjectName }}:{{ .Tag }}-amd64
+      - redradrat/{{ .ProjectName }}:latest-amd64
+      - ghcr.io/redradrat/{{ .ProjectName }}:{{ .Tag }}-amd64
+      - ghcr.io/redradrat/{{ .ProjectName }}:latest-amd64
     build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--builder=desktop-linux"
-    dockerfile: goreleaser_Dockerfile
-  - image_templates:
-      - "redradrat/aws-iam-operator:{{ .Tag }}-arm64"
-      - "redradrat/aws-iam-operator:latest-arm64"
-      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-arm64"
-      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-arm64"
-    use: buildx
+      - --pull
+      - --platform=linux/amd64
+      - --label=org.opencontainers.image.description="An operator that enables AWS IAM management via Kubernetes custom resources"
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.source="https://github.com/redradrat/aws-iam-operator"
+      - --label=org.opencontainers.image.url="https://github.com/redradrat/aws-iam-operator"
+      - --label=org.opencontainers.image.authors="redradrat"
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.title="{{ .ProjectName }}"
+      - --label=org.opencontainers.image.revision="{{ .FullCommit }}"
+      - --label=org.opencontainers.image.version="{{ .Version }}"
+  - use: buildx
     goos: linux
     goarch: arm64
+    dockerfile: goreleaser.Dockerfile
+    image_templates:
+      - redradrat/{{ .ProjectName }}:{{ .Tag }}-arm64
+      - redradrat/{{ .ProjectName }}:latest-arm64
+      - ghcr.io/redradrat/{{ .ProjectName }}:{{ .Tag }}-arm64
+      - ghcr.io/redradrat/{{ .ProjectName }}:latest-arm64
     build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--builder=desktop-linux"
-    dockerfile: goreleaser_Dockerfile
+      - --pull
+      - --platform=linux/amd64
+      - --label=org.opencontainers.image.description="An operator that enables AWS IAM management via Kubernetes custom resources"
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.source="https://github.com/redradrat/aws-iam-operator"
+      - --label=org.opencontainers.image.url="https://github.com/redradrat/aws-iam-operator"
+      - --label=org.opencontainers.image.authors="redradrat"
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.title="{{ .ProjectName }}"
+      - --label=org.opencontainers.image.revision="{{ .FullCommit }}"
+      - --label=org.opencontainers.image.version="{{ .Version }}"
+  - use: buildx
+    goos: linux
+    goarch: arm
+    goarm: "7"
+    dockerfile: "goreleaser.Dockerfile"
+    image_templates:
+      - redradrat/{{ .ProjectName }}:{{ .Tag }}-armv7
+      - redradrat/{{ .ProjectName }}:latest-armv7
+      - ghcr.io/redradrat/{{ .ProjectName }}:{{ .Tag }}-armv7
+      - ghcr.io/redradrat/{{ .ProjectName }}:latest-armv7
+    build_flag_templates:
+      - --pull
+      - --platform=linux/arm/v7
+      - --label=org.opencontainers.image.description="An operator that enables AWS IAM management via Kubernetes custom resources"
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.source="https://github.com/redradrat/aws-iam-operator"
+      - --label=org.opencontainers.image.url="https://github.com/redradrat/aws-iam-operator"
+      - --label=org.opencontainers.image.authors="redradrat"
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.title="{{ .ProjectName }}"
+      - --label=org.opencontainers.image.revision="{{ .FullCommit }}"
+      - --label=org.opencontainers.image.version="{{ .Version }}"
+
 docker_manifests:
-  - name_template: redradrat/aws-iam-operator:{{ .Tag }}
+  - name_template: redradrat/{{ .ProjectName }}:{{ .Tag }}
     image_templates:
-      - redradrat/aws-iam-operator:{{ .Tag }}-arm64
-      - redradrat/aws-iam-operator:{{ .Tag }}-amd64
-  - name_template: redradrat/aws-iam-operator:latest
+      - redradrat/{{ .ProjectName }}:{{ .Tag }}-arm64
+      - redradrat/{{ .ProjectName }}:{{ .Tag }}-amd64
+  - name_template: redradrat/{{ .ProjectName }}:latest
     image_templates:
-      - redradrat/aws-iam-operator:latest-arm64
-      - redradrat/aws-iam-operator:latest-amd64
-  - name_template: ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}
+      - redradrat/{{ .ProjectName }}:latest-arm64
+      - redradrat/{{ .ProjectName }}:latest-amd64
+  - name_template: ghcr.io/redradrat/{{ .ProjectName }}:{{ .Tag }}
     image_templates:
-      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-arm64
-      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-amd64
-  - name_template: ghcr.io/redradrat/aws-iam-operator:latest
+      - ghcr.io/redradrat/{{ .ProjectName }}:{{ .Tag }}-arm64
+      - ghcr.io/redradrat/{{ .ProjectName }}:{{ .Tag }}-amd64
+  - name_template: ghcr.io/redradrat/{{ .ProjectName }}:latest
     image_templates:
-      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-arm64
-      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-amd64
+      - ghcr.io/redradrat/{{ .ProjectName }}:latest-arm64
+      - ghcr.io/redradrat/{{ .ProjectName }}:latest-amd64
+
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  name_template: "{{ incpatch .Tag}}-devel"
+
+gomod:
+  proxy: true
+  env:
+    - GOPROXY=https://proxy.golang.org,direct
+    - GOSUMDB=sum.golang.org
+  mod: mod
+  gobinary: go
+
 changelog:
   sort: asc
   filters:
