@@ -264,7 +264,7 @@ func getPolicyDoc(role *iamv1beta1.Role, oidcProviderARN string, c client.Client
 		}
 
 		arn := aws.MustParse(oidcProviderARN)
-		resourceWithoutType := strings.Split(arn.Resource, "/")[1]
+		resourceWithoutType := strings.SplitAfterN(arn.Resource, "/", 2)[1]
 		conditions := make(map[iamv1beta1.PolicyStatementConditionKey]string)
 		conditions[iamv1beta1.PolicyStatementConditionKey(fmt.Sprintf("%s:aud", resourceWithoutType))] = "sts.amazonaws.com"
 		conditions[iamv1beta1.PolicyStatementConditionKey(fmt.Sprintf("%s:sub", resourceWithoutType))] = fmt.Sprintf("system:serviceaccount:aws:%s", role.Name)
@@ -274,7 +274,7 @@ func getPolicyDoc(role *iamv1beta1.Role, oidcProviderARN string, c client.Client
 				Effect:  "Allow",
 				Actions: []string{"sts:AssumeRoleWithWebIdentity"},
 				Conditions: map[iamv1beta1.PolicyStatementConditionOperator]iamv1beta1.PolicyStatementConditionComparison{
-					"StringLike": conditions,
+					"StringEquals": conditions,
 				},
 			},
 			Principal: map[string]string{
