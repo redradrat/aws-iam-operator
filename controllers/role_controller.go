@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -39,11 +40,12 @@ import (
 // RoleReconciler reconciles a Role object
 type RoleReconciler struct {
 	client.Client
-	Interval       time.Duration
-	Log            logr.Logger
-	Region         string
-	Scheme         *runtime.Scheme
-	ResourcePrefix string
+	Interval        time.Duration
+	Log             logr.Logger
+	Region          string
+	Scheme          *runtime.Scheme
+	ResourcePrefix  string
+	OidcProviderARN string
 }
 
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=roles,verbs=get;list;watch;create;update;patch;delete
@@ -66,7 +68,7 @@ func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	// get the policy doc
-	polDoc, resVer, err := getPolicyDoc(&role, r.Client, ctx)
+	polDoc, resVer, err := getPolicyDoc(&role, r.OidcProviderARN, r.Client, ctx)
 	if err != nil {
 		return ctrl.Result{}, errWithStatus(&role, err, r.Status(), ctx)
 	}
@@ -230,17 +232,18 @@ func (r *RoleReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // this helper returns the referenced policy document, but if it's a reference, also returns its resource version as
 // string. This is so we can decide, whether we need to do reconciliation. Usually we would discard as no change, but
 // in this case, we don't know whether a reference might have changed.
-func getPolicyDoc(role *iamv1beta1.Role, c client.Client, ctx context.Context) (iam.PolicyDocument, string, error) {
+func getPolicyDoc(role *iamv1beta1.Role, oidcProviderARN string, c client.Client, ctx context.Context) (iam.PolicyDocument, string, error) {
 	var resourceVersion string
 	var p iam.PolicyDocument
+	var statement iamv1beta1.AssumeRolePolicyStatement
 	if len(role.Spec.AssumeRolePolicy) != 0 {
 		if !reflect.DeepEqual(role.Spec.AssumeRolePolicyReference, iamv1beta1.ResourceReference{}) {
 			err := fmt.Errorf("only one specification of AssumeRolePolicy and AssumeRolePolicyReference is allowed")
 			return p, "", err
 		}
-		p = role.Marshal()
+		statement = role.Spec.AssumeRolePolicy
 	}
-	if len(role.Spec.AssumeRolePolicy) == 0 {
+	if len(role.Spec.AssumeRolePolicy) == 0 && !role.Spec.AddIRSAPolicy {
 		if reflect.DeepEqual(role.Spec.AssumeRolePolicyReference, iamv1beta1.ResourceReference{}) {
 			err := fmt.Errorf("specification of either AssumeRolePolicy or AssumeRolePolicyReference is mandatory")
 			return p, "", err
@@ -251,8 +254,37 @@ func getPolicyDoc(role *iamv1beta1.Role, c client.Client, ctx context.Context) (
 			return p, "", err
 		}
 		resourceVersion = assumeRolePolicy.GetResourceVersion()
-		p = assumeRolePolicy.Marshal()
+		statement = assumeRolePolicy.Spec.Statement
 	}
+
+	if role.Spec.AddIRSAPolicy {
+		if oidcProviderARN == "" {
+			err := fmt.Errorf("addIRSAPolicy is true but no OIDC-Provider ARN has been given to the controller")
+			return p, "", err
+		}
+
+		arn := aws.MustParse(oidcProviderARN)
+		resourceWithoutType := strings.Split(arn.Resource, "/")[1]
+		conditions := make(map[iamv1beta1.PolicyStatementConditionKey]string)
+		conditions[iamv1beta1.PolicyStatementConditionKey(fmt.Sprintf("%s:aud", resourceWithoutType))] = "sts.amazonaws.com"
+		conditions[iamv1beta1.PolicyStatementConditionKey(fmt.Sprintf("%s:sub", resourceWithoutType))] = fmt.Sprintf("system:serviceaccount:aws:%s", role.Name)
+
+		statement = append(statement, iamv1beta1.AssumeRolePolicyStatementEntry{
+			PolicyStatementEntry: iamv1beta1.PolicyStatementEntry{
+				Effect:  "Allow",
+				Actions: []string{"sts:AssumeRoleWithWebIdentity"},
+				Conditions: map[iamv1beta1.PolicyStatementConditionOperator]iamv1beta1.PolicyStatementConditionComparison{
+					"StringLike": conditions,
+				},
+			},
+			Principal: map[string]string{
+				"Federated": oidcProviderARN,
+			},
+		})
+	}
+
+	p = statement.MarshalPolicyDocument()
+
 	return p, resourceVersion, nil
 }
 

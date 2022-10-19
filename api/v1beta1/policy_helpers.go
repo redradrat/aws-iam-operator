@@ -15,8 +15,8 @@ func (psc PolicyStatementCondition) Normalize() map[string]map[string]string {
 	out := make(map[string]map[string]string)
 
 	for k, v := range psc {
+		out[string(k)] = make(map[string]string)
 		for ki, vi := range v {
-			out[string(k)] = make(map[string]string)
 			out[string(k)][string(ki)] = vi
 		}
 	}

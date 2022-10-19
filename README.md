@@ -35,6 +35,7 @@ The controller manager has a couple of input options, which you can set as param
         args:
         - --enable-leader-election # For HA setup
         - --resource-prefix "testcluster-" # set a prefix to all created AWS resources (e.g. "testcluster-" -> "testcluster-user")
+        - --oidc-provider-arn # OPTIONAL: allows setting a oidc provider arn for auto-injecting trust for roles
         image: redradrat/aws-iam-operator:latest
         name: manager
 ```
@@ -54,6 +55,7 @@ The Role resource abstracts an AWS IAM Role.
 
 Setting an `assumeRolePolicy` or an `assumeRolePolicyRef` is **mandatory**.
 Creating a `ServiceAccount` resource is possible via `createServiceAccount`. The created ServiceAccount includes the EKS OIDC support annotation.
+When `addIRSAPolicy` is true, the controller will automatically add the trust policy for the OIDC provider given as controller argument.
 
 ```yaml
 apiVersion: aws-iam.redradrat.xyz/v1beta1
@@ -77,6 +79,7 @@ spec:
         "StringEquals":
           "blablabla": "system:serviceaccount:kube-system:aws-cluster-autoscaler"
   createServiceAccount: true
+  addIRSAPolicy: true
   maxSessionDuration: 3600
 ```
 

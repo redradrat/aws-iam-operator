@@ -22,6 +22,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/redradrat/cloud-objects/aws"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -52,11 +54,13 @@ func init() {
 func main() {
 	var metricsAddr string
 	var region string
+	var oidcProviderARN string
 	var resourcePrefix string
 	var enableLeaderElection bool
 	var requeueInterval time.Duration
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&region, "region", "eu-west-1", "The AWS region to use.")
+	flag.StringVar(&oidcProviderARN, "oidc-provider-arn", "", "The ARN for the identity provider to use for injecting IRSA trust statements.")
 	flag.DurationVar(&requeueInterval, "requeue-interaval", 30*time.Second, "The requeue interval to use do reconcile specific resources.")
 	flag.StringVar(&resourcePrefix, "resource-prefix", "", "A prefix to prepend to all created AWS resources.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
@@ -67,6 +71,13 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
 	ctrl.Log.Info(fmt.Sprintf("aws-iam-operator version: %s (built: %s)", operatorversion, operatorbuilddate))
+
+	if oidcProviderARN != "" {
+		if _, err := aws.ARNify(oidcProviderARN); err != nil {
+			setupLog.Error(err, "cannot parse given oidc provider arn. exiting...")
+			os.Exit(1)
+		}
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -81,12 +92,13 @@ func main() {
 	}
 
 	if err = (&controllers.RoleReconciler{
-		Client:         mgr.GetClient(),
-		Interval:       requeueInterval,
-		Log:            ctrl.Log.WithName("controllers").WithName("Role"),
-		Region:         region,
-		Scheme:         mgr.GetScheme(),
-		ResourcePrefix: resourcePrefix,
+		Client:          mgr.GetClient(),
+		Interval:        requeueInterval,
+		Log:             ctrl.Log.WithName("controllers").WithName("Role"),
+		Region:          region,
+		Scheme:          mgr.GetScheme(),
+		ResourcePrefix:  resourcePrefix,
+		OidcProviderARN: oidcProviderARN,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Role")
 		os.Exit(1)

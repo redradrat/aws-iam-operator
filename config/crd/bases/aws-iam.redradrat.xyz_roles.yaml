@@ -50,6 +50,10 @@ spec:
           spec:
             description: RoleSpec defines the desired state of Role
             properties:
+              addIRSAPolicy:
+                description: AddIRSAPolicy adds the assume-role-policy statement to
+                  the trust policy.
+                type: boolean
               assumeRolePolicy:
                 description: AssumeRolePolicy holds the Trust Policy statement for
                   the role

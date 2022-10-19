@@ -36,6 +36,9 @@ type RoleSpec struct {
 	// CreateServiceAccount triggers the creation of an annotated ServiceAccount for the created role
 	CreateServiceAccount bool `json:"createServiceAccount,omitempty"`
 
+	// AddIRSAPolicy adds the assume-role-policy statement to the trust policy.
+	AddIRSAPolicy bool `json:"addIRSAPolicy,omitempty"`
+
 	// +kubebuilder:validation:Optional
 	// +nullable
 	// MaxSessionDuration specifies the maximum duration a session with this role assumed can last
