@@ -267,7 +267,7 @@ func getPolicyDoc(role *iamv1beta1.Role, oidcProviderARN string, c client.Client
 		resourceWithoutType := strings.SplitAfterN(arn.Resource, "/", 2)[1]
 		conditions := make(map[iamv1beta1.PolicyStatementConditionKey]string)
 		conditions[iamv1beta1.PolicyStatementConditionKey(fmt.Sprintf("%s:aud", resourceWithoutType))] = "sts.amazonaws.com"
-		conditions[iamv1beta1.PolicyStatementConditionKey(fmt.Sprintf("%s:sub", resourceWithoutType))] = fmt.Sprintf("system:serviceaccount:aws:%s", role.Name)
+		conditions[iamv1beta1.PolicyStatementConditionKey(fmt.Sprintf("%s:sub", resourceWithoutType))] = fmt.Sprintf("system:serviceaccount:%s:%s", role.Namespace, role.Name)
 
 		statement = append(statement, iamv1beta1.AssumeRolePolicyStatementEntry{
 			PolicyStatementEntry: iamv1beta1.PolicyStatementEntry{
