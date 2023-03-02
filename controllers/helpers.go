@@ -74,11 +74,22 @@ func DeleteAWSObject(svc iamiface.IAMAPI, ins aws.Instance, preFunc func() error
 		return ErrorStatusUpdater(err.Error()), err
 	}
 
-	if err := ins.Delete(svc); err != nil {
+	if err := ins.Delete(svc); ignoreDoesNotExistError(err) != nil {
 		return ErrorStatusUpdater(err.Error()), err
 	}
 
 	return DoNothingStatusUpdater, nil
+}
+
+func ignoreDoesNotExistError(err error) error {
+	if err != nil {
+		if castErr, ok := err.(aws.InstanceError); ok {
+			if castErr.IsOfErrorCode(aws.ErrAWSInstanceNotYetCreated) {
+				return nil
+			}
+		}
+	}
+	return err
 }
 
 func DoNothingPreFunc() error { return nil }

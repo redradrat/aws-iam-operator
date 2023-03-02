@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	awsiam "github.com/aws/aws-sdk-go/service/iam"
+
 	"github.com/go-logr/logr"
 	"github.com/redradrat/cloud-objects/aws"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -124,22 +127,24 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// RECONCILE THE RESOURCE
 
 	// if there is already an ARN in our status, then we update the object
-	if policy.Status.ARN != "" {
-		// Update the actual AWS Object and pass the DoNothing function
-		statusWriter, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
-		statusWriter(ins, &policy, ctx, r.Status(), log)
-		if err != nil {
-			// we had an error during AWS Object update... so we return here to retry
-			log.Error(err, "error while updating Policy during reconciliation")
-			return ctrl.Result{}, err
+	statusWriter, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
+	statusWriter(ins, &policy, ctx, r.Status(), log)
+	if err != nil {
+		// If already exists, we just update the status
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == awsiam.ErrCodeEntityAlreadyExistsException {
+				// Update the actual AWS Object and pass the DoNothing function
+				statusWriter, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
+				statusWriter(ins, &policy, ctx, r.Status(), log)
+				if err != nil {
+					// we had an error during AWS Object update... so we return here to retry
+					log.Error(err, "error while updating Policy during reconciliation")
+					return ctrl.Result{}, err
+				}
+			}
 		}
-	} else {
-		statusWriter, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
-		statusWriter(ins, &policy, ctx, r.Status(), log)
-		if err != nil {
-			log.Error(err, "error while creating Policy during reconciliation")
-			return ctrl.Result{}, err
-		}
+		log.Error(err, "error while creating Policy during reconciliation")
+		return ctrl.Result{}, err
 	}
 
 	policy.Status.ObservedGeneration = policy.ObjectMeta.Generation
