@@ -95,7 +95,8 @@ func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	// new role instance
 	var ins *iam.RoleInstance
-	roleName := r.ResourcePrefix + role.Name
+	roleName := r.ResourcePrefix + role.RoleName()
+
 	var duration int64 = 3600
 	if role.Spec.MaxSessionDuration != nil {
 		duration = *role.Spec.MaxSessionDuration
@@ -213,7 +214,7 @@ func roleCleanup(r *RoleReconciler, ctx context.Context, role iamv1beta1.Role) f
 		}
 		for _, att := range attachments.Items {
 			if att.Spec.TargetReference.Type == iamv1beta1.RoleTargetType {
-				if att.Spec.TargetReference.Name == role.Name && att.Spec.TargetReference.Namespace == role.Namespace {
+				if att.Spec.TargetReference.Name == role.RoleName() && att.Spec.TargetReference.Namespace == role.Namespace {
 					err := fmt.Errorf(fmt.Sprintf("cannot delete Role due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace))
 					return err
 				}
@@ -267,7 +268,7 @@ func getPolicyDoc(role *iamv1beta1.Role, oidcProviderARN string, c client.Client
 		resourceWithoutType := strings.SplitAfterN(arn.Resource, "/", 2)[1]
 		conditions := make(map[iamv1beta1.PolicyStatementConditionKey]string)
 		conditions[iamv1beta1.PolicyStatementConditionKey(fmt.Sprintf("%s:aud", resourceWithoutType))] = "sts.amazonaws.com"
-		conditions[iamv1beta1.PolicyStatementConditionKey(fmt.Sprintf("%s:sub", resourceWithoutType))] = fmt.Sprintf("system:serviceaccount:%s:%s", role.Namespace, role.Name)
+		conditions[iamv1beta1.PolicyStatementConditionKey(fmt.Sprintf("%s:sub", resourceWithoutType))] = fmt.Sprintf("system:serviceaccount:%s:%s", role.Namespace, role.RoleName())
 
 		statement = append(statement, iamv1beta1.AssumeRolePolicyStatementEntry{
 			PolicyStatementEntry: iamv1beta1.PolicyStatementEntry{
@@ -292,7 +293,7 @@ func createRoleServiceAccount(role iamv1beta1.Role, ctx context.Context, client 
 	if role.Spec.CreateServiceAccount {
 		sa := v1.ServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      role.Name,
+				Name:      role.RoleName(),
 				Namespace: role.Namespace,
 				Labels:    role.Labels,
 				Annotations: map[string]string{

@@ -48,6 +48,11 @@ type RoleSpec struct {
 	//
 	// Description holds the description string for the Role
 	Description string `json:"description,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	//
+	// RoleName is the name of the role to create. If not specified, metadata.name will be used
+	RoleName string `json:"roleName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
