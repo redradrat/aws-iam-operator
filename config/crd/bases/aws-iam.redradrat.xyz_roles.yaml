@@ -106,6 +106,10 @@ spec:
                   namespace:
                     type: string
                 type: object
+              awsRoleName:
+                description: AWSRoleName is the name of the role to create. If not
+                  specified, metadata.name will be used
+                type: string
               createServiceAccount:
                 description: CreateServiceAccount triggers the creation of an annotated
                   ServiceAccount for the created role
@@ -119,10 +123,6 @@ spec:
                 format: int64
                 nullable: true
                 type: integer
-              roleName:
-                description: RoleName is the name of the role to create. If not specified,
-                  metadata.name will be used
-                type: string
             type: object
           status:
             properties:

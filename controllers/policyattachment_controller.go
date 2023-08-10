@@ -26,8 +26,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
 	"github.com/redradrat/cloud-objects/aws/iam"
+
+	iamv1beta1 "github.com/redradrat/aws-iam-operator/api/v1beta1"
 )
 
 // PolicyAssignmentReconciler reconciles a PolicyAssignment object
