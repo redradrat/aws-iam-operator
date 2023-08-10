@@ -214,7 +214,7 @@ func roleCleanup(r *RoleReconciler, ctx context.Context, role iamv1beta1.Role) f
 		}
 		for _, att := range attachments.Items {
 			if att.Spec.TargetReference.Type == iamv1beta1.RoleTargetType {
-				if att.Spec.TargetReference.Name == role.RoleName() && att.Spec.TargetReference.Namespace == role.Namespace {
+				if att.Spec.TargetReference.Name == role.Name && att.Spec.TargetReference.Namespace == role.Namespace {
 					err := fmt.Errorf(fmt.Sprintf("cannot delete Role due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace))
 					return err
 				}
