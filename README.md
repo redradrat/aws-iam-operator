@@ -51,7 +51,7 @@ The controller manager has a couple of input options, which you can set as param
 
 ### Role
 
-The Role resource abstracts an AWS IAM Role. 
+The Role resource abstracts an AWS IAM Role.
 
 Setting an `assumeRolePolicy` or an `assumeRolePolicyRef` is **mandatory**.
 Creating a `ServiceAccount` resource is possible via `createServiceAccount`. The created ServiceAccount includes the EKS OIDC support annotation.
@@ -81,6 +81,8 @@ spec:
   createServiceAccount: true
   addIRSAPolicy: true
   maxSessionDuration: 3600
+  // spec.roleName takes precendence over metadata.name
+  roleName: the-role
 ```
 
 Resulting `ServiceAccount`:
@@ -172,7 +174,7 @@ spec:
 
 ### User
 
-The User resource abstracts an AWS IAM User. 
+The User resource abstracts an AWS IAM User.
 
 Setting `createLoginProfile` or an `createProgrammaticAccess` is **optional**.
 Creating a `Secret` resource, containing Console Login Data, is possible via `createLoginProfile`. The created secret includes the username and password.
@@ -230,7 +232,7 @@ type: Opaque
 
 ### Group
 
-The Group resource abstracts an AWS IAM Group. 
+The Group resource abstracts an AWS IAM Group.
 
 Adding IAM Users to the group, is possible via `users`. The referenced users need to be created via this operator.
 
