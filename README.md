@@ -81,8 +81,8 @@ spec:
   createServiceAccount: true
   addIRSAPolicy: true
   maxSessionDuration: 3600
-  // spec.roleName takes precendence over metadata.name
-  roleName: the-role
+  // spec.awsRoleName takes precendence over metadata.name
+  awsRoleName: the-role
 ```
 
 Resulting `ServiceAccount`:
