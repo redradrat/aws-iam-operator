@@ -151,6 +151,8 @@ spec:
       conditions:
         "StringEquals":
           "aws:SourceIp": "172.0.0.1"
+  // spec.awsPolicyName takes precendence over metadata.name
+  awsPolicyName: the-policy
 ```
 
 ### PolicyAttachment
