@@ -40,7 +40,7 @@ type GroupStatus struct {
 // +kubebuilder:printcolumn:name="Message",type=string,JSONPath=`.status.message`
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.state`
 // +kubebuilder:printcolumn:name="Last Sync",type=string,JSONPath=`.status.lastSyncAttempt`
-//
+
 // Group is the Schema for the roles API
 type Group struct {
 	metav1.TypeMeta   `json:",inline"`

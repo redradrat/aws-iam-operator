@@ -50,6 +50,13 @@ spec:
           spec:
             description: PolicyAttachmentSpec defines the desired state of PolicyAttachment
             properties:
+              externalPolicy:
+                description: ExternalPolicy is a reference to a resource that is not
+                  created by the controller
+                properties:
+                  arn:
+                    type: string
+                type: object
               policy:
                 description: PolicyReference refrences the Policy resource to attach
                   to another resource

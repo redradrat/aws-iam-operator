@@ -70,7 +70,7 @@ func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// get the policy doc
 	polDoc, resVer, err := getPolicyDoc(&role, r.OidcProviderARN, r.Client, ctx)
 	if err != nil {
-		return ctrl.Result{}, errWithStatus(&role, err, r.Status(), ctx)
+		return ctrl.Result{}, errWithStatus(ctx, &role, err, r.Status())
 	}
 
 	reconcileUnneccessary :=
@@ -90,7 +90,7 @@ func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
 	iamsvc, err := IAMService(r.Region)
 	if err != nil {
-		return ctrl.Result{}, errWithStatus(&role, err, r.Status(), ctx)
+		return ctrl.Result{}, errWithStatus(ctx, &role, err, r.Status())
 	}
 
 	// new role instance
@@ -103,7 +103,7 @@ func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if role.Status.ARN != "" {
 		parsedArn, err := aws.ARNify(role.Status.ARN)
 		if err != nil {
-			return ctrl.Result{}, errWithStatus(&role, fmt.Errorf("ARN in Role status is not valid/parsable"), r.Status(), ctx)
+			return ctrl.Result{}, errWithStatus(ctx, &role, fmt.Errorf("ARN in Role status is not valid/parsable"), r.Status())
 		}
 		ins = iam.NewExistingRoleInstance(roleName, role.Spec.Description, duration, polDoc, parsedArn[len(parsedArn)-1])
 	} else {
@@ -131,7 +131,7 @@ func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			// delete the actual AWS Object and pass the cleanup function
 			statusUpdater, err := DeleteAWSObject(iamsvc, ins, cleanupFunc)
 			// we got a StatusUpdater function returned... let's execute it
-			statusUpdater(ins, &role, ctx, r.Status(), log)
+			statusUpdater(ctx, ins, &role, r.Status(), log)
 			if err != nil {
 				// we had an error during AWS Object deletion... so we return here to retry
 				log.Error(err, "unable to delete Role")
@@ -158,7 +158,7 @@ func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		// delete the actual AWS Object and pass the cleanup function
 		statusUpdater, err := DeleteAWSObject(iamsvc, ins, cleanupFunc)
 		// we got a StatusUpdater function returned... let's execute it
-		statusUpdater(ins, &role, ctx, r.Status(), log)
+		statusUpdater(ctx, ins, &role, r.Status(), log)
 		if err != nil {
 			// we had an error during AWS Object deletion... so we return here to retry
 			log.Error(err, "error while deleting Role during reconciliation")
@@ -167,7 +167,7 @@ func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	statusUpdater, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
-	statusUpdater(ins, &role, ctx, r.Status(), log)
+	statusUpdater(ctx, ins, &role, r.Status(), log)
 	if err != nil {
 		log.Error(err, "error while creating Role during reconciliation")
 		return ctrl.Result{}, err
@@ -214,7 +214,7 @@ func roleCleanup(r *RoleReconciler, ctx context.Context, role iamv1beta1.Role) f
 		for _, att := range attachments.Items {
 			if att.Spec.TargetReference.Type == iamv1beta1.RoleTargetType {
 				if att.Spec.TargetReference.Name == role.Name && att.Spec.TargetReference.Namespace == role.Namespace {
-					err := fmt.Errorf(fmt.Sprintf("cannot delete Role due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace))
+					err := fmt.Errorf("cannot delete Role due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace)
 					return err
 				}
 			}

@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,7 +60,7 @@ func (r *GroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
 	iamsvc, err := IAMService(r.Region)
 	if err != nil {
-		return ctrl.Result{}, errWithStatus(&group, err, r.Status(), ctx)
+		return ctrl.Result{}, errWithStatus(ctx, &group, err, r.Status())
 	}
 
 	// new group instance
@@ -68,7 +69,7 @@ func (r *GroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if group.Status.ARN != "" {
 		parsedArn, err := aws.ARNify(group.Status.ARN)
 		if err != nil {
-			return ctrl.Result{}, errWithStatus(&group, fmt.Errorf("ARN in Group status is not valid/parsable"), r.Status(), ctx)
+			return ctrl.Result{}, errWithStatus(ctx, &group, fmt.Errorf("ARN in Group status is not valid/parsable"), r.Status())
 		}
 		ins = iam.NewExistingGroupInstance(groupName, parsedArn[len(parsedArn)-1])
 	} else {
@@ -104,7 +105,7 @@ func (r *GroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			// delete the actual AWS Object and pass the cleanup function
 			statusUpdater, err := DeleteAWSObject(iamsvc, ins, cleanupFunc)
 			// we got a StatusUpdater function returned... let's execute it
-			statusUpdater(ins, &group, ctx, r.Status(), log)
+			statusUpdater(ctx, ins, &group, r.Status(), log)
 			if err != nil {
 				// we had an error during AWS Object deletion... so we return here to retry
 				log.Error(err, "unable to delete Group")
@@ -130,7 +131,7 @@ func (r *GroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if group.Status.ARN != "" {
 		// Delete the actual AWS Object and pass the cleanup function
 		statusWriter, err := DeleteAWSObject(iamsvc, ins, cleanupFunc)
-		statusWriter(ins, &group, ctx, r.Status(), log)
+		statusWriter(ctx, ins, &group, r.Status(), log)
 		if err != nil {
 			// we had an error during AWS Object deletion... so we return here to retry
 			log.Error(err, "error while deleting Group during reconciliation")
@@ -139,7 +140,7 @@ func (r *GroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	statusWriter, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
-	statusWriter(ins, &group, ctx, r.Status(), log)
+	statusWriter(ctx, ins, &group, r.Status(), log)
 	if err != nil {
 		log.Error(err, "error while creating Group during reconciliation")
 		return ctrl.Result{}, err
@@ -151,23 +152,23 @@ func (r *GroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		userObj := iamv1beta1.User{}
 		r.Client.Get(ctx, client.ObjectKey{Name: user.Name, Namespace: user.Namespace}, &userObj)
 		if err != nil {
-			return ctrl.Result{}, errWithStatus(&group, err, r.Status(), ctx)
+			return ctrl.Result{}, errWithStatus(ctx, &group, err, r.Status())
 		}
 
 		// Err if ARN is not available in the user obj
 		if userObj.Status.ARN == "" {
-			return ctrl.Result{}, errWithStatus(&group, fmt.Errorf("referenced user resource '%s/%s' has not yet been created", user.Namespace, user.Name), r.Status(), ctx)
+			return ctrl.Result{}, errWithStatus(ctx, &group, fmt.Errorf("referenced user resource '%s/%s' has not yet been created", user.Namespace, user.Name), r.Status())
 		}
 
 		// parse the user arn
 		parsedArn, err := aws.ARNify(userObj.Status.ARN)
 		if err != nil {
-			return ctrl.Result{}, errWithStatus(&group, fmt.Errorf("ARN in referenced User status is not valid/parsable"), r.Status(), ctx)
+			return ctrl.Result{}, errWithStatus(ctx, &group, fmt.Errorf("ARN in referenced User status is not valid/parsable"), r.Status())
 		}
 
 		// Now add the user to our Group Instance
 		if err = ins.AddUser(iamsvc, parsedArn[len(parsedArn)-1]); err != nil {
-			return ctrl.Result{}, errWithStatus(&group, err, r.Status(), ctx)
+			return ctrl.Result{}, errWithStatus(ctx, &group, err, r.Status())
 		}
 	}
 
@@ -195,7 +196,7 @@ func groupCleanup(r *GroupReconciler, ctx context.Context, group iamv1beta1.Grou
 		for _, att := range attachments.Items {
 			if att.Spec.TargetReference.Type == iamv1beta1.GroupTargetType {
 				if att.Spec.TargetReference.Name == group.Name && att.Spec.TargetReference.Namespace == group.Namespace {
-					err := fmt.Errorf(fmt.Sprintf("cannot delete Group due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace))
+					err := fmt.Errorf("cannot delete Group due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace)
 					return err
 				}
 			}
