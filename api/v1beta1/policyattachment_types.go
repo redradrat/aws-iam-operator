@@ -20,6 +20,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ResourceReference refrences the Policy resource to attach to another resource
+// +kubebuilder:validation:Optional
+// +optional
 type ResourceReference struct {
 
 	// +kubebuilder:validation:Required
@@ -27,6 +30,15 @@ type ResourceReference struct {
 
 	// +kubebuilder:validation:Required
 	Namespace string `json:"namespace,omitempty"`
+}
+
+// ExternalResource is a reference to a policy ARN that is not created by the controller
+// +kubebuilder:validation:Optional
+// +optional
+type ExternalResource struct {
+
+	// +kubebuilder:validation:Required
+	ARN string `json:"arn,omitempty"`
 }
 
 type TargetType string
@@ -54,14 +66,18 @@ type TargetReference struct {
 // PolicyAttachmentSpec defines the desired state of PolicyAttachment
 type PolicyAttachmentSpec struct {
 
-	// +kubebuilder:validation:Required
-	//
 	// PolicyReference refrences the Policy resource to attach to another resource
+	// +kubebuilder:validation:Optional
+	// +optional
 	PolicyReference ResourceReference `json:"policy,omitempty"`
 
-	// +kubebuilder:validation:Required
-	//
+	// ExternalPolicy is a reference to a resource that is not created by the controller
+	// +kubebuilder:validation:Optional
+	// +optional
+	ExternalPolicy ExternalResource `json:"externalPolicy,omitempty"`
+
 	// Attachments holds all defined attachments
+	// +kubebuilder:validation:Required
 	TargetReference TargetReference `json:"target,omitempty"`
 }
 
