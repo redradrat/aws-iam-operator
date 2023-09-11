@@ -147,15 +147,6 @@ func ErrorStatusUpdater(reason string) StatusUpdater {
 func DoNothingStatusUpdater(ctx context.Context, ins aws.Instance, obj AWSObjectStatusResource, sw client.StatusWriter, log logr.Logger) {
 }
 
-func DeletePolicyVersion(svc iamiface.IAMAPI, policyARN string, versionID string) error {
-	_, err := svc.DeletePolicyVersion(&awsiam.DeletePolicyVersionInput{
-		PolicyArn: &policyARN,
-		VersionId: &versionID,
-	})
-
-	return err
-}
-
 func CleanUpPolicyVersions(svc iamiface.IAMAPI, policyARN string) error {
 	maxVersions := 4
 	resp, err := svc.ListPolicyVersions(&awsiam.ListPolicyVersionsInput{
@@ -172,11 +163,13 @@ func CleanUpPolicyVersions(svc iamiface.IAMAPI, policyARN string) error {
 
 	// We need to delete oldest versions
 	for i := len(resp.Versions) - 1; i >= maxVersions; i-- {
-		err := DeletePolicyVersion(svc, policyARN, *resp.Versions[i].VersionId)
+		_, err := svc.DeletePolicyVersion(&awsiam.DeletePolicyVersionInput{
+			PolicyArn: &policyARN,
+			VersionId: &*resp.Versions[i].VersionId,
+		})
 		if err != nil {
 			return err
 		}
 	}
-
 	return nil
 }

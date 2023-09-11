@@ -133,6 +133,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// If already exists, we just update the status
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == awsiam.ErrCodeEntityAlreadyExistsException {
+				// Remove oldest Policy Version to make space for new one
 				err := CleanUpPolicyVersions(iamsvc, ins.ARN().String())
 				if err != nil {
 					log.Error(err, "error while cleaning up Policy versions during reconciliation")
@@ -143,6 +144,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				statusWriter, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
 				statusWriter(ctx, ins, &policy, r.Status(), log)
 				if err != nil {
+					// we had an error during AWS Object update... so we return here to retry
 					log.Error(err, "error while updating Policy during reconciliation")
 					return ctrl.Result{}, err
 				}
