@@ -151,6 +151,7 @@ func GetOldestPolicyVersion(svc iamiface.IAMAPI, policyARN string) (string, erro
 	resp, err := svc.ListPolicyVersions(&awsiam.ListPolicyVersionsInput{
 		PolicyArn: &policyARN,
 	})
+
 	if err != nil {
 		return "", err
 	}
@@ -170,13 +171,19 @@ func GetOldestPolicyVersion(svc iamiface.IAMAPI, policyARN string) (string, erro
 }
 
 func DeletePolicyVersion(svc iamiface.IAMAPI, policyARN string, versionID string) (string, error) {
-	if versionID == "" {
-		return "", nil
-	}
-
 	_, err := svc.DeletePolicyVersion(&awsiam.DeletePolicyVersionInput{
 		PolicyArn: &policyARN,
 		VersionId: &versionID,
 	})
+
 	return "", err
+}
+
+func DeleteOldestPolicyVersion(svc iamiface.IAMAPI, policyARN string) (string, error) {
+	versionID, err := GetOldestPolicyVersion(svc, policyARN)
+	if err != nil {
+		return "", err
+	}
+
+	return DeletePolicyVersion(svc, policyARN, versionID)
 }
