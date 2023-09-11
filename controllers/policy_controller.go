@@ -137,9 +137,24 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				statusWriter, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
 				statusWriter(ctx, ins, &policy, r.Status(), log)
 				if err != nil {
-					// we had an error during AWS Object update... so we return here to retry
-					log.Error(err, "error while updating Policy during reconciliation")
-					return ctrl.Result{}, err
+					if theError, ok := err.(awserr.Error); ok {
+						if theError.Code() == awsiam.ErrCodeLimitExceededException {
+							// We should delete oldest version
+							versionID, err := GetOldestPolicyVersion(iamsvc, ins.ARN().String())
+							if err == nil {
+								_, err := DeletePolicyVersion(iamsvc, ins.ARN().String(), versionID)
+
+								if err != nil {
+									log.Error(err, "error while deleting Policy version during reconciliation")
+									return ctrl.Result{}, err
+								}
+							}
+						}
+					} else {
+						// we had an error during AWS Object update... so we return here to retry
+						log.Error(err, "error while updating Policy during reconciliation")
+						return ctrl.Result{}, err
+					}
 				}
 			}
 		}
