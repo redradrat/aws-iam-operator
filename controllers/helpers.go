@@ -147,43 +147,36 @@ func ErrorStatusUpdater(reason string) StatusUpdater {
 func DoNothingStatusUpdater(ctx context.Context, ins aws.Instance, obj AWSObjectStatusResource, sw client.StatusWriter, log logr.Logger) {
 }
 
-func GetOldestPolicyVersion(svc iamiface.IAMAPI, policyARN string) (string, error) {
-	resp, err := svc.ListPolicyVersions(&awsiam.ListPolicyVersionsInput{
-		PolicyArn: &policyARN,
-	})
-
-	if err != nil {
-		return "", err
-	}
-
-	if len(resp.Versions) == 0 {
-		return "", nil
-	}
-
-	oldest := resp.Versions[0]
-	for _, v := range resp.Versions {
-		if v.CreateDate.Before(*oldest.CreateDate) {
-			oldest = v
-		}
-	}
-
-	return *oldest.VersionId, nil
-}
-
-func DeletePolicyVersion(svc iamiface.IAMAPI, policyARN string, versionID string) (string, error) {
+func DeletePolicyVersion(svc iamiface.IAMAPI, policyARN string, versionID string) error {
 	_, err := svc.DeletePolicyVersion(&awsiam.DeletePolicyVersionInput{
 		PolicyArn: &policyARN,
 		VersionId: &versionID,
 	})
 
-	return "", err
+	return err
 }
 
-func DeleteOldestPolicyVersion(svc iamiface.IAMAPI, policyARN string) (string, error) {
-	versionID, err := GetOldestPolicyVersion(svc, policyARN)
+func CleanUpPolicyVersions(svc iamiface.IAMAPI, policyARN string) error {
+	maxVersions := 4
+	resp, err := svc.ListPolicyVersions(&awsiam.ListPolicyVersionsInput{
+		PolicyArn: &policyARN,
+	})
+
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	return DeletePolicyVersion(svc, policyARN, versionID)
+	if len(resp.Versions) <= maxVersions {
+		return nil
+	}
+
+	// We need to delete oldest versions
+	for i := len(resp.Versions) - 1; i >= maxVersions; i-- {
+		err := DeletePolicyVersion(svc, policyARN, *resp.Versions[i].VersionId)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
