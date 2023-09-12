@@ -18,12 +18,13 @@ builds:
       - -X main.operatorversion={{.Version}}
       - -X main.operatorbuilddate={{.Date}}
 archives:
-  - replacements:
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
-      386: i386
-      amd64: x86_64
+  - name_template: >-
+      {{- .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
 dockers:
   - image_templates:
       - "redradrat/aws-iam-operator:{{ .Tag }}-amd64"
@@ -35,6 +36,7 @@ dockers:
     use: buildx
     build_flag_templates:
       - "--platform=linux/amd64"
+      - "--builder=desktop-linux"
     dockerfile: goreleaser_Dockerfile
   - image_templates:
       - "redradrat/aws-iam-operator:{{ .Tag }}-arm64"
@@ -46,6 +48,7 @@ dockers:
     goarch: arm64
     build_flag_templates:
       - "--platform=linux/arm64"
+      - "--builder=desktop-linux"
     dockerfile: goreleaser_Dockerfile
 docker_manifests:
   - name_template: redradrat/aws-iam-operator:{{ .Tag }}
