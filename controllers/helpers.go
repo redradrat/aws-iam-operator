@@ -94,7 +94,7 @@ func ignoreDoesNotExistError(err error) error {
 
 func DoNothingPreFunc() error { return nil }
 
-func errWithStatus(obj AWSObjectStatusResource, err error, sw client.StatusWriter, ctx context.Context) error {
+func errWithStatus(ctx context.Context, obj AWSObjectStatusResource, err error, sw client.StatusWriter) error {
 	origerr := err
 	obj.GetStatus().Message = origerr.Error()
 	obj.GetStatus().State = iamv1beta1.ErrorSyncState
@@ -115,10 +115,10 @@ func IAMService(region string) (*awsiam.IAM, error) {
 	return iam.Client(session), nil
 }
 
-type StatusUpdater func(ins aws.Instance, obj AWSObjectStatusResource, ctx context.Context, sw client.StatusWriter, log logr.Logger)
+type StatusUpdater func(ctx context.Context, ins aws.Instance, obj AWSObjectStatusResource, sw client.StatusWriter, log logr.Logger)
 
 func SuccessStatusUpdater() StatusUpdater {
-	return func(ins aws.Instance, obj AWSObjectStatusResource, ctx context.Context, sw client.StatusWriter, log logr.Logger) {
+	return func(ctx context.Context, ins aws.Instance, obj AWSObjectStatusResource, sw client.StatusWriter, log logr.Logger) {
 		obj.GetStatus().ARN = ins.ARN().String()
 		obj.GetStatus().Message = "Succesfully reconciled"
 		obj.GetStatus().State = iamv1beta1.OkSyncState
@@ -132,7 +132,7 @@ func SuccessStatusUpdater() StatusUpdater {
 }
 
 func ErrorStatusUpdater(reason string) StatusUpdater {
-	return func(ins aws.Instance, obj AWSObjectStatusResource, ctx context.Context, sw client.StatusWriter, log logr.Logger) {
+	return func(ctx context.Context, ins aws.Instance, obj AWSObjectStatusResource, sw client.StatusWriter, log logr.Logger) {
 		obj.GetStatus().Message = reason
 		obj.GetStatus().State = iamv1beta1.ErrorSyncState
 		obj.GetStatus().LastSyncAttempt = time.Now().Format(time.RFC822Z)
@@ -144,5 +144,5 @@ func ErrorStatusUpdater(reason string) StatusUpdater {
 	}
 }
 
-func DoNothingStatusUpdater(ins aws.Instance, obj AWSObjectStatusResource, ctx context.Context, sw client.StatusWriter, log logr.Logger) {
+func DoNothingStatusUpdater(ctx context.Context, ins aws.Instance, obj AWSObjectStatusResource, sw client.StatusWriter, log logr.Logger) {
 }

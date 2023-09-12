@@ -82,7 +82,7 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// Get our actual IAM Service to communicate with AWS; we don't need to continue without it
 	iamsvc, err := IAMService(r.Region)
 	if err != nil {
-		return ctrl.Result{}, errWithStatus(&user, err, r.Status(), ctx)
+		return ctrl.Result{}, errWithStatus(ctx, &user, err, r.Status())
 	}
 
 	// new user instance
@@ -91,7 +91,7 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if user.Status.ARN != "" {
 		parsedArn, err := aws.ARNify(user.Status.ARN)
 		if err != nil {
-			return ctrl.Result{}, errWithStatus(&user, fmt.Errorf("ARN in User status is not valid/parsable"), r.Status(), ctx)
+			return ctrl.Result{}, errWithStatus(ctx, &user, fmt.Errorf("ARN in User status is not valid/parsable"), r.Status())
 		}
 		ins = iam.NewExistingUserInstance(userName, user.Spec.CreateLoginProfile, user.Status.LoginProfileCreated, user.Spec.CreateProgrammaticAccess, user.Status.ProgrammaticAccessCreated, parsedArn[len(parsedArn)-1])
 	} else {
@@ -119,7 +119,7 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			// delete the actual AWS Object and pass the cleanup function
 			statusUpdater, err := DeleteAWSObject(iamsvc, ins, cleanupFunc)
 			// we got a StatusUpdater function returned... let's execute it
-			statusUpdater(ins, &user, ctx, r.Status(), log)
+			statusUpdater(ctx, ins, &user, r.Status(), log)
 			if err != nil {
 				// we had an error during AWS Object deletion... so we return here to retry
 				log.Error(err, "unable to delete User")
@@ -148,7 +148,7 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if user.Status.ARN != "" {
 		// User already exists; we need to update it
 		statusUpdater, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
-		statusUpdater(ins, &user, ctx, r.Status(), log)
+		statusUpdater(ctx, ins, &user, r.Status(), log)
 		if err != nil {
 			log.Error(err, "error while updating User during reconciliation")
 			return ctrl.Result{}, err
@@ -156,7 +156,7 @@ func (r *UserReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	} else {
 		// User does not yet exist, let's create it
 		statusUpdater, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
-		statusUpdater(ins, &user, ctx, r.Status(), log)
+		statusUpdater(ctx, ins, &user, r.Status(), log)
 		if err != nil {
 			log.Error(err, "error while creating User during reconciliation")
 			return ctrl.Result{}, err
@@ -245,7 +245,7 @@ func userCleanup(r *UserReconciler, ctx context.Context, user iamv1beta1.User) f
 		for _, att := range attachments.Items {
 			if att.Spec.TargetReference.Type == iamv1beta1.UserTargetType {
 				if att.Spec.TargetReference.Name == user.Name && att.Spec.TargetReference.Namespace == user.Namespace {
-					err := fmt.Errorf(fmt.Sprintf("cannot delete User due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace))
+					err := fmt.Errorf("cannot delete User due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace)
 					return err
 				}
 			}
