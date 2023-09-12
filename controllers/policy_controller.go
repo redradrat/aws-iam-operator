@@ -149,20 +149,22 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				}
 				// we had an error during AWS Object update... so we return here to retry
 				return ctrl.Result{}, err
+			} else {
+				log.Info(fmt.Sprintf("Updated Policy '%s'", policy.Status.ARN))
 			}
 		} else {
 			// we had an error during AWS Object create... so we return here to retry
 			log.Error(err, "error while creating Policy during reconciliation")
 			return ctrl.Result{}, err
 		}
+	} else {
+		log.Info(fmt.Sprintf("Created Policy '%s'", policy.Status.ARN))
 	}
 
 	policy.Status.ObservedGeneration = policy.ObjectMeta.Generation
 	if err := r.Status().Update(ctx, &policy); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	log.Info(fmt.Sprintf("Created Policy '%s'", policy.Status.ARN))
 
 	return ctrl.Result{}, nil
 }
