@@ -148,7 +148,7 @@ func DoNothingStatusUpdater(ctx context.Context, ins aws.Instance, obj AWSObject
 }
 
 func CleanUpPolicyVersions(svc iamiface.IAMAPI, policyARN string) error {
-	maxVersions := 4
+	maxPermittedVersions := 5
 
 	if len(policyARN) < 20 {
 		return nil
@@ -162,19 +162,21 @@ func CleanUpPolicyVersions(svc iamiface.IAMAPI, policyARN string) error {
 		return err
 	}
 
-	if len(resp.Versions) <= maxVersions {
+	// We only remove the last version when we have the maximum permitted versions
+	if len(resp.Versions) != maxPermittedVersions {
 		return nil
 	}
 
-	// We need to delete oldest versions
-	for i := len(resp.Versions) - 1; i >= maxVersions; i-- {
-		_, err := svc.DeletePolicyVersion(&awsiam.DeletePolicyVersionInput{
-			PolicyArn: &policyARN,
-			VersionId: &*resp.Versions[i].VersionId,
-		})
-		if err != nil {
-			return err
-		}
+	oldestVersion := resp.Versions[maxPermittedVersions-1]
+
+	_, err = svc.DeletePolicyVersion(&awsiam.DeletePolicyVersionInput{
+		PolicyArn: &policyARN,
+		VersionId: oldestVersion.VersionId,
+	})
+
+	if err != nil {
+		return err
 	}
+
 	return nil
 }

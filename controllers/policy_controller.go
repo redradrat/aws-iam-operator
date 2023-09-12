@@ -133,8 +133,9 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		aerr, ok := err.(awserr.Error)
 		if ok && aerr.Code() == awsiam.ErrCodeEntityAlreadyExistsException {
-			// If EntityAlreadyExists, we just clean up the policies and update the resource
+			// If EntityAlreadyExists, we just clean up the policy versions and update the resource
 			err := CleanUpPolicyVersions(iamsvc, ins.ARN().String())
+
 			if err != nil {
 				log.Error(err, "error while cleaning up Policy versions during reconciliation")
 				return ctrl.Result{}, err
