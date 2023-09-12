@@ -127,32 +127,31 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// RECONCILE THE RESOURCE
 
-	// if there is already an ARN in our status, then we update the object
+	// We try to create the resource
 	statusWriter, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
 	statusWriter(ctx, ins, &policy, r.Status(), log)
 	if err != nil {
-		// If already exists, we just update the status
 		aerr, ok := err.(awserr.Error)
 		if ok && aerr.Code() == awsiam.ErrCodeEntityAlreadyExistsException {
-			// Update the actual AWS Object and pass the DoNothing function
+			// If EntityAlreadyExists, we just update the resource
 			statusWriter, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
 			statusWriter(ctx, ins, &policy, r.Status(), log)
 			if err != nil {
 				aerr, ok := err.(awserr.Error)
 				if ok && aerr.Code() == awsiam.ErrCodeLimitExceededException {
-					// Remove oldests policy versions to make space for new one
+					// If LimitExceeded, we remove oldests policy versions to make space for new one
 					err := CleanUpPolicyVersions(iamsvc, ins.ARN().String())
 					if err != nil {
 						log.Error(err, "error while cleaning up Policy versions during reconciliation")
 					}
 				} else {
-					// we had an error during AWS Object update... so we return here to retry
 					log.Error(err, "error while updating Policy during reconciliation")
 				}
-
+				// we had an error during AWS Object update... so we return here to retry
 				return ctrl.Result{}, err
 			}
 		} else {
+			// we had an error during AWS Object create... so we return here to retry
 			log.Error(err, "error while creating Policy during reconciliation")
 			return ctrl.Result{}, err
 		}
