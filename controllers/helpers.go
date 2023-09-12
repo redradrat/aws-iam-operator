@@ -149,6 +149,11 @@ func DoNothingStatusUpdater(ctx context.Context, ins aws.Instance, obj AWSObject
 
 func CleanUpPolicyVersions(svc iamiface.IAMAPI, policyARN string) error {
 	maxVersions := 4
+
+	if len(policyARN) < 20 {
+		return nil
+	}
+
 	resp, err := svc.ListPolicyVersions(&awsiam.ListPolicyVersionsInput{
 		PolicyArn: &policyARN,
 	})

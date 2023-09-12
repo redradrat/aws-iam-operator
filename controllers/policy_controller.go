@@ -52,6 +52,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	log := r.Log.WithValues("policy", req.NamespacedName)
 
 	var policy iamv1beta1.Policy
+	// Retrieves policy from the Kubernetes Cluster
 	err := r.Get(ctx, req.NamespacedName, &policy)
 	if err != nil {
 		log.V(1).Info("unable to fetch Policy")
@@ -133,21 +134,30 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// If already exists, we just update the status
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == awsiam.ErrCodeEntityAlreadyExistsException {
-				// Remove oldest Policy Version to make space for new one
-				err := CleanUpPolicyVersions(iamsvc, ins.ARN().String())
-				if err != nil {
-					log.Error(err, "error while cleaning up Policy versions during reconciliation")
-					return ctrl.Result{}, err
-				}
-
 				// Update the actual AWS Object and pass the DoNothing function
 				statusWriter, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
 				statusWriter(ctx, ins, &policy, r.Status(), log)
 				if err != nil {
+					if aerr, ok := err.(awserr.Error); ok {
+						if aerr.Code() == awsiam.ErrCodeLimitExceededException {
+							// Remove oldests policy versions to make space for new one
+							err := CleanUpPolicyVersions(iamsvc, ins.ARN().String())
+							if err != nil {
+								log.Error(err, "error while cleaning up Policy versions during reconciliation")
+								return ctrl.Result{}, err
+							}
+						}
+					}
 					// we had an error during AWS Object update... so we return here to retry
 					log.Error(err, "error while updating Policy during reconciliation")
 					return ctrl.Result{}, err
 				}
+
+				policy.Status.ObservedGeneration = policy.ObjectMeta.Generation
+				if err := r.Status().Update(ctx, &policy); err != nil {
+					return ctrl.Result{}, err
+				}
+				return ctrl.Result{}, nil
 			}
 		}
 		log.Error(err, "error while creating Policy during reconciliation")
