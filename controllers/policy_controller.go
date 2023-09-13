@@ -96,7 +96,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			policy.ObjectMeta.Finalizers = append(policy.ObjectMeta.Finalizers, policiesFinalizer)
 			if err := r.Update(context.Background(), &policy); err != nil {
 				log.Error(err, "unable to register finalizer for Policy")
-				return ctrl.Result{}, errWithStatus(&policy, err, r.Status(), ctx)
+				return ctrl.Result{}, errWithStatus(ctx, &policy, err, r.Status())
 			}
 		}
 	} else {
@@ -105,7 +105,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 			// delete the actual AWS Object and pass the cleanup function
 			statusWriter, err := DeleteAWSObject(iamsvc, ins, cleanupFunc)
-			statusWriter(ins, &policy, ctx, r.Status(), log)
+			statusWriter(ctx, ins, &policy, r.Status(), log)
 			if err != nil {
 				// we had an error during AWS Object deletion... so we return here to retry
 				log.Error(err, "unable to delete Policy")
@@ -128,14 +128,14 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// if there is already an ARN in our status, then we update the object
 	statusWriter, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
-	statusWriter(ins, &policy, ctx, r.Status(), log)
+	statusWriter(ctx, ins, &policy, r.Status(), log)
 	if err != nil {
 		// If already exists, we just update the status
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == awsiam.ErrCodeEntityAlreadyExistsException {
 				// Update the actual AWS Object and pass the DoNothing function
 				statusWriter, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
-				statusWriter(ins, &policy, ctx, r.Status(), log)
+				statusWriter(ctx, ins, &policy, r.Status(), log)
 				if err != nil {
 					// we had an error during AWS Object update... so we return here to retry
 					log.Error(err, "error while updating Policy during reconciliation")
@@ -172,7 +172,7 @@ func policyCleanup(r *PolicyReconciler, ctx context.Context, policy *iamv1beta1.
 		}
 		for _, att := range attachments.Items {
 			if att.Spec.PolicyReference.Name == policy.Name && att.Spec.PolicyReference.Namespace == policy.Namespace {
-				err := fmt.Errorf(fmt.Sprintf("cannot delete policy due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace))
+				err := fmt.Errorf("cannot delete policy due to existing PolicyAttachment '%s/%s'", att.Name, att.Namespace)
 				return err
 			}
 		}

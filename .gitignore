@@ -7,6 +7,7 @@ dist/
 *.so
 *.dylib
 bin
+aws-iam-operator
 
 # Test binary, build with `go test -c`
 *.test
