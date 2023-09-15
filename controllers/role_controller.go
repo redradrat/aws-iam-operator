@@ -50,10 +50,12 @@ type RoleReconciler struct {
 
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=roles,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=roles/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments,verbs=get;list;watch
-// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=roles/finalizers,verbs=get;update
+
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=assumerolepolicies,verbs=get;list;watch
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=assumerolepolicies/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=assumerolepolicies/finalizers,verbs=get;update
+
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=secrets/status,verbs=get;update;patch
 

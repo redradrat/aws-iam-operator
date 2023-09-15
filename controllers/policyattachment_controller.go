@@ -46,6 +46,8 @@ type PolicyAttachmentReconciler struct {
 // Reconcile PolicyAttachment
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments/finalizers,verbs=get;update
+
 func (r *PolicyAttachmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("policyattachment", req.NamespacedName)
 
