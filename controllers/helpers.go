@@ -123,6 +123,7 @@ func SuccessStatusUpdater() StatusUpdater {
 		obj.GetStatus().Message = "Succesfully reconciled"
 		obj.GetStatus().State = iamv1beta1.OkSyncState
 		obj.GetStatus().LastSyncAttempt = time.Now().Format(time.RFC822Z)
+		obj.GetStatus().ObservedGeneration = obj.RuntimeObject().GetGeneration()
 
 		err := sw.Update(ctx, obj.RuntimeObject())
 		if err != nil {
@@ -145,4 +146,36 @@ func ErrorStatusUpdater(reason string) StatusUpdater {
 }
 
 func DoNothingStatusUpdater(ctx context.Context, ins aws.Instance, obj AWSObjectStatusResource, sw client.StatusWriter, log logr.Logger) {
+}
+
+func CleanUpPolicyVersions(svc iamiface.IAMAPI, policyARN string) (StatusUpdater, error) {
+	maxPermittedVersions := 5
+
+	//if len(policyARN) < 20 {
+	//	return nil
+	//}
+
+	resp, err := svc.ListPolicyVersions(&awsiam.ListPolicyVersionsInput{
+		PolicyArn: &policyARN,
+	})
+	if err != nil {
+		status := ErrorStatusUpdater(err.Error())
+		return status, err
+	}
+
+	// We only remove the last version when we have the maximum permitted versions
+	if len(resp.Versions) != maxPermittedVersions {
+		return DoNothingStatusUpdater, nil
+	}
+	oldestVersion := resp.Versions[maxPermittedVersions-1]
+
+	_, err = svc.DeletePolicyVersion(&awsiam.DeletePolicyVersionInput{
+		PolicyArn: &policyARN,
+		VersionId: oldestVersion.VersionId,
+	})
+	if err != nil {
+		status := ErrorStatusUpdater(err.Error())
+		return status, err
+	}
+	return SuccessStatusUpdater(), nil
 }
