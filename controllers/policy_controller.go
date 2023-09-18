@@ -18,7 +18,9 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	awsiam "github.com/aws/aws-sdk-go/service/iam"
@@ -42,6 +44,12 @@ type PolicyReconciler struct {
 	Scheme         *runtime.Scheme
 	ResourcePrefix string
 }
+
+const (
+	errRequeueInterval = 10 * time.Second
+	policiesFinalizer  = "policy.aws-iam.redradrat.xyz" // the finalizer for deleting the actual aws resources
+
+)
 
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policies/status,verbs=get;update;patch
@@ -69,9 +77,6 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	// the finalizer for deleting the actual aws resources
-	policiesFinalizer := "policy.aws-iam.redradrat.xyz"
 
 	// now let's instantiate our PolicyInstance
 	var ins *iam.PolicyInstance
@@ -131,39 +136,42 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	statusWriter, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
 	statusWriter(ctx, ins, &policy, r.Status(), log)
 	if err != nil {
-		aerr, ok := err.(awserr.Error)
-		if ok && aerr.Code() == awsiam.ErrCodeEntityAlreadyExistsException {
-			// If EntityAlreadyExists, we just clean up the policy versions and update the resource
-			err := CleanUpPolicyVersions(iamsvc, ins.ARN().String())
-
+		var awserr awserr.Error
+		ok := errors.As(err, &awserr)
+		if ok && awserr.Code() == awsiam.ErrCodeEntityAlreadyExistsException {
+			err = r.updatePolicy(ctx, iamsvc, ins, policy)
 			if err != nil {
-				log.Error(err, "error while cleaning up Policy versions during reconciliation")
-				return ctrl.Result{}, err
-			}
-
-			statusWriter, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
-			statusWriter(ctx, ins, &policy, r.Status(), log)
-			if err != nil {
-				log.Error(err, "error while updating Policy during reconciliation")
-				return ctrl.Result{}, err
-			} else {
-				log.Info(fmt.Sprintf("Updated Policy '%s'", policy.Status.ARN))
+				return ctrl.Result{RequeueAfter: errRequeueInterval}, err
 			}
 		} else {
 			// we had an error during AWS Object create... so we return here to retry
 			log.Error(err, "error while creating Policy during reconciliation")
-			return ctrl.Result{}, err
+			return ctrl.Result{RequeueAfter: errRequeueInterval}, err
 		}
 	} else {
 		log.Info(fmt.Sprintf("Created Policy '%s'", policy.Status.ARN))
 	}
 
-	policy.Status.ObservedGeneration = policy.ObjectMeta.Generation
-	if err := r.Status().Update(ctx, &policy); err != nil {
-		return ctrl.Result{}, err
+	return ctrl.Result{}, nil
+}
+
+func (r *PolicyReconciler) updatePolicy(ctx context.Context, iamsvc *awsiam.IAM, ins *iam.PolicyInstance, policy iamv1beta1.Policy) error {
+	// If EntityAlreadyExists, we just clean up the policy versions and update the resource
+	statusWriter, err := CleanUpPolicyVersions(iamsvc, ins.ARN().String())
+	statusWriter(ctx, ins, &policy, r.Status(), r.Log)
+	if err != nil {
+		r.Log.Error(err, "error while cleaning up Policy versions during reconciliation")
+		return err
 	}
 
-	return ctrl.Result{}, nil
+	statusWriter, err = UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
+	statusWriter(ctx, ins, &policy, r.Status(), r.Log)
+	if err != nil {
+		r.Log.Error(err, "error while updating Policy during reconciliation")
+		return err
+	}
+	r.Log.Info(fmt.Sprintf("Updated Policy '%s'", policy.Status.ARN))
+	return nil
 }
 
 func (r *PolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
