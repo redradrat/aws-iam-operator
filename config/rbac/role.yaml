@@ -56,6 +56,13 @@ rules:
 - apiGroups:
   - aws-iam.redradrat.xyz
   resources:
+  - assumerolepolicies/finalizers
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
   - assumerolepolicies/status
   verbs:
   - get
@@ -73,6 +80,13 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - groups/finalizers
+  verbs:
+  - get
+  - update
 - apiGroups:
   - aws-iam.redradrat.xyz
   resources:
@@ -96,6 +110,13 @@ rules:
 - apiGroups:
   - aws-iam.redradrat.xyz
   resources:
+  - policies/finalizers
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
   - policies/status
   verbs:
   - get
@@ -106,9 +127,20 @@ rules:
   resources:
   - policyattachments
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - policyattachments/finalizers
+  verbs:
+  - get
+  - update
 - apiGroups:
   - aws-iam.redradrat.xyz
   resources:
@@ -132,6 +164,13 @@ rules:
 - apiGroups:
   - aws-iam.redradrat.xyz
   resources:
+  - roles/finalizers
+  verbs:
+  - get
+  - update
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
   - roles/status
   verbs:
   - get
@@ -149,6 +188,13 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - aws-iam.redradrat.xyz
+  resources:
+  - users/finalizers
+  verbs:
+  - get
+  - update
 - apiGroups:
   - aws-iam.redradrat.xyz
   resources:
