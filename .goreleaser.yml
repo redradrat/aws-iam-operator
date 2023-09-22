@@ -1,8 +1,10 @@
 # This is an example goreleaser.yaml file with some sane defaults.
 # Make sure to check the documentation at http://goreleaser.com
+project_name: aws-iam-operator
+
 before:
   hooks:
-    # You may remove this if you don't use go modules.
+    - go mod tidy
     - go mod download
     # you may remove this if you don't need go generate
     - go generate ./...
@@ -13,67 +15,108 @@ builds:
       - linux
       - windows
       - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+      - "6"
     ldflags:
       - -s -w # strip symbols, reduces binary size
       - -X main.operatorversion={{.Version}}
       - -X main.operatorbuilddate={{.Date}}
 archives:
-  - replacements:
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
-      386: i386
-      amd64: x86_64
+  - id: default
+    format_overrides:
+      - goos: windows
+        format: zip
 dockers:
-  - image_templates:
-      - "redradrat/aws-iam-operator:{{ .Tag }}-amd64"
-      - "redradrat/aws-iam-operator:latest-amd64"
-      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-amd64"
-      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-amd64"
+  - use: buildx
     goos: linux
     goarch: amd64
-    use: buildx
+    dockerfile: goreleaser.Dockerfile
+    image_templates:
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:{{ .Tag }}-amd64
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:v{{ .Major }}-amd64
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:latest-amd64
+
     build_flag_templates:
-      - "--platform=linux/amd64"
-    dockerfile: goreleaser_Dockerfile
-  - image_templates:
-      - "redradrat/aws-iam-operator:{{ .Tag }}-arm64"
-      - "redradrat/aws-iam-operator:latest-arm64"
-      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-arm64"
-      - "ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-arm64"
-    use: buildx
+      - --pull
+      - --platform=linux/amd64
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.source="https://github.com/onlyfyio/aws-iam-operator"
+      - --label=org.opencontainers.image.url="https://github.com/onlyfyio/aws-iam-operator"
+      - --label=org.opencontainers.image.authors="cape@onlyfy.com"
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.title="{{ .ProjectName }}"
+      - --label=org.opencontainers.image.revision="{{ .FullCommit }}"
+      - --label=org.opencontainers.image.version="{{ .Version }}"
+  - use: buildx
     goos: linux
     goarch: arm64
+    dockerfile: goreleaser.Dockerfile
+    image_templates:
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:{{ .Tag }}-arm64v8
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:v{{ .Major }}-arm64v8
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:latest-arm64v8
     build_flag_templates:
-      - "--platform=linux/arm64"
-    dockerfile: goreleaser_Dockerfile
+      - --pull
+      - --platform=linux/arm64/v8
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.source="https://github.com/onlyfyio/aws-iam-operator"
+      - --label=org.opencontainers.image.url="https://github.com/onlyfyio/aws-iam-operator"
+      - --label=org.opencontainers.image.authors="cape@onlyfy.com"
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.title="{{ .ProjectName }}"
+      - --label=org.opencontainers.image.revision="{{ .FullCommit }}"
+      - --label=org.opencontainers.image.version="{{ .Version }}"
+  - use: buildx
+    goos: linux
+    goarch: arm
+    goarm: "7"
+    dockerfile: goreleaser.Dockerfile
+    image_templates:
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:{{ .Tag }}-armv7
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:v{{ .Major }}-armv7
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:latest-armv7
+    build_flag_templates:
+      - --pull
+      - --platform=linux/arm/v7
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.source="https://github.com/onlyfyio/aws-iam-operator"
+      - --label=org.opencontainers.image.url="https://github.com/onlyfyio/aws-iam-operator"
+      - --label=org.opencontainers.image.authors="cape@onlyfy.com"
+      - --label=org.opencontainers.image.created="{{ .Date }}"
+      - --label=org.opencontainers.image.title="{{ .ProjectName }}"
+      - --label=org.opencontainers.image.revision="{{ .FullCommit }}"
+      - --label=org.opencontainers.image.version="{{ .Version }}"
+
 docker_manifests:
-  - name_template: redradrat/aws-iam-operator:{{ .Tag }}
+  - name_template: 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:{{ .Tag }}
     image_templates:
-      - redradrat/aws-iam-operator:{{ .Tag }}-arm64
-      - redradrat/aws-iam-operator:{{ .Tag }}-amd64
-  - name_template: redradrat/aws-iam-operator:latest
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:{{ .Tag }}-amd64
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:{{ .Tag }}-arm64v8
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:{{ .Tag }}-armv7
+  - name_template: 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:v{{ .Major }}
     image_templates:
-      - redradrat/aws-iam-operator:latest-arm64
-      - redradrat/aws-iam-operator:latest-amd64
-  - name_template: ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:v{{ .Major }}-amd64
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:v{{ .Major }}-arm64v8
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:v{{ .Major }}-armv7
+  - name_template: 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:latest
     image_templates:
-      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-arm64
-      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:{{ .Tag }}-amd64
-  - name_template: ghcr.io/redradrat/aws-iam-operator:latest
-    image_templates:
-      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-arm64
-      - ghcr.io/redradrat/aws-iam-operator/aws-iam-operator:latest-amd64
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:latest-amd64
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:latest-arm64v8
+      - 662412797287.dkr.ecr.eu-central-1.amazonaws.com/{{ .ProjectName }}:latest-armv7
+
 checksum:
-  name_template: 'checksums.txt'
+  name_template: checksums.txt
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  name_template: "{{ incpatch .Tag}}-devel"
+
 changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-env_files:
-  # use only one or release will fail!
-  github_token: ~/.tokens/goreleaser_github
+      - "^docs:"
+      - "^test:"
