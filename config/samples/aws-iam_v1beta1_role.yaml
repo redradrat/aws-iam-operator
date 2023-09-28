@@ -16,3 +16,4 @@ spec:
     name: policy
     namespace: default
   createServiceAccount: true
+  awsRoleName: aws-role-name

@@ -91,6 +91,11 @@ type PolicySpec struct {
 	//
 	// Description holds the description string for the Role
 	Description string `json:"description,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	//
+	// AWSPolicyName is the name of the policy to create. If not specified, metadata.name will be used
+	AWSPolicyName string `json:"awsPolicyName,omitempty"`
 }
 
 // +kubebuilder:object:root=true

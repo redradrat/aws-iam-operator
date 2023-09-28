@@ -97,7 +97,7 @@ func (r *RoleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	// new role instance
 	var ins *iam.RoleInstance
-	roleName := r.ResourcePrefix + role.Name
+	roleName := r.ResourcePrefix + role.RoleName()
 	var duration int64 = 3600
 	if role.Spec.MaxSessionDuration != nil {
 		duration = *role.Spec.MaxSessionDuration
