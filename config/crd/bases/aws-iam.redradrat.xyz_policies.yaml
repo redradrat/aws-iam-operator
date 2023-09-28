@@ -50,6 +50,10 @@ spec:
           spec:
             description: PolicySpec defines the desired state of Policy
             properties:
+              awsPolicyName:
+                description: AWSPolicyName is the name of the policy to create. If
+                  not specified, metadata.name will be used
+                type: string
               description:
                 description: Description holds the description string for the Role
                 type: string

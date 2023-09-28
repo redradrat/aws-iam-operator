@@ -57,3 +57,10 @@ func (p *Policy) Marshal() iam.PolicyDocument {
 
 	return policyDocument
 }
+
+func (p *Policy) PolicyName() string {
+	if p.Spec.AWSPolicyName != "" {
+		return p.Spec.AWSPolicyName
+	}
+	return p.Name
+}

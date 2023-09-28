@@ -13,3 +13,4 @@ spec:
       conditions:
         "StringEquals":
           "aws:SourceIp": "172.0.0.1"
+  awsPolicyName: aws-policy-name
