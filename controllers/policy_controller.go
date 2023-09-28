@@ -18,7 +18,9 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	awsiam "github.com/aws/aws-sdk-go/service/iam"
@@ -43,14 +45,22 @@ type PolicyReconciler struct {
 	ResourcePrefix string
 }
 
+const (
+	errRequeueInterval = 10 * time.Second
+	policiesFinalizer  = "policy.aws-iam.redradrat.xyz" // the finalizer for deleting the actual aws resources
+
+)
+
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policies,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policies/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policies/finalizers,verbs=get;update
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=aws-iam.redradrat.xyz,resources=policyattachments/status,verbs=get;update;patch
 
 func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("policy", req.NamespacedName)
 
 	var policy iamv1beta1.Policy
+	// Retrieves policy from the Kubernetes Cluster
 	err := r.Get(ctx, req.NamespacedName, &policy)
 	if err != nil {
 		log.V(1).Info("unable to fetch Policy")
@@ -67,9 +77,6 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	// the finalizer for deleting the actual aws resources
-	policiesFinalizer := "policy.aws-iam.redradrat.xyz"
 
 	// now let's instantiate our PolicyInstance
 	var ins *iam.PolicyInstance
@@ -125,35 +132,46 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// RECONCILE THE RESOURCE
 
-	// if there is already an ARN in our status, then we update the object
+	// We try to create the resource
 	statusWriter, err := CreateAWSObject(iamsvc, ins, DoNothingPreFunc)
 	statusWriter(ctx, ins, &policy, r.Status(), log)
 	if err != nil {
-		// If already exists, we just update the status
-		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == awsiam.ErrCodeEntityAlreadyExistsException {
-				// Update the actual AWS Object and pass the DoNothing function
-				statusWriter, err := UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
-				statusWriter(ctx, ins, &policy, r.Status(), log)
-				if err != nil {
-					// we had an error during AWS Object update... so we return here to retry
-					log.Error(err, "error while updating Policy during reconciliation")
-					return ctrl.Result{}, err
-				}
+		var awserr awserr.Error
+		ok := errors.As(err, &awserr)
+		if ok && awserr.Code() == awsiam.ErrCodeEntityAlreadyExistsException {
+			err = r.updatePolicy(ctx, iamsvc, ins, policy)
+			if err != nil {
+				return ctrl.Result{RequeueAfter: errRequeueInterval}, err
 			}
+		} else {
+			// we had an error during AWS Object create... so we return here to retry
+			log.Error(err, "error while creating Policy during reconciliation")
+			return ctrl.Result{RequeueAfter: errRequeueInterval}, err
 		}
-		log.Error(err, "error while creating Policy during reconciliation")
-		return ctrl.Result{}, err
+	} else {
+		log.Info(fmt.Sprintf("Created Policy '%s'", policy.Status.ARN))
 	}
-
-	policy.Status.ObservedGeneration = policy.ObjectMeta.Generation
-	if err := r.Status().Update(ctx, &policy); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	log.Info(fmt.Sprintf("Created Policy '%s'", policy.Status.ARN))
 
 	return ctrl.Result{}, nil
+}
+
+func (r *PolicyReconciler) updatePolicy(ctx context.Context, iamsvc *awsiam.IAM, ins *iam.PolicyInstance, policy iamv1beta1.Policy) error {
+	// If EntityAlreadyExists, we just clean up the policy versions and update the resource
+	statusWriter, err := CleanUpPolicyVersions(iamsvc, ins.ARN().String())
+	statusWriter(ctx, ins, &policy, r.Status(), r.Log)
+	if err != nil {
+		r.Log.Error(err, "error while cleaning up Policy versions during reconciliation")
+		return err
+	}
+
+	statusWriter, err = UpdateAWSObject(iamsvc, ins, DoNothingPreFunc)
+	statusWriter(ctx, ins, &policy, r.Status(), r.Log)
+	if err != nil {
+		r.Log.Error(err, "error while updating Policy during reconciliation")
+		return err
+	}
+	r.Log.Info(fmt.Sprintf("Updated Policy '%s'", policy.Status.ARN))
+	return nil
 }
 
 func (r *PolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
