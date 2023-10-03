@@ -40,3 +40,10 @@ func (r *Role) Marshal() iam.PolicyDocument {
 
 	return policyDocument
 }
+
+func (r *Role) RoleName() string {
+	if r.Spec.AWSRoleName != "" {
+		return r.Spec.AWSRoleName
+	}
+	return r.Name
+}

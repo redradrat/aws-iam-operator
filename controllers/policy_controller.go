@@ -79,7 +79,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// now let's instantiate our PolicyInstance
 	var ins *iam.PolicyInstance
-	policyName := r.ResourcePrefix + policy.Name
+	policyName := r.ResourcePrefix + policy.PolicyName()
 	if policy.Status.ARN != "" {
 		parsedArn, err := aws.ARNify(policy.Status.ARN)
 		if err != nil {
