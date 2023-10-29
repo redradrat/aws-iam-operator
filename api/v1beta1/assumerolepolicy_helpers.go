@@ -14,11 +14,11 @@ func (arp *AssumeRolePolicy) Metadata() metav1.ObjectMeta {
 	return arp.ObjectMeta
 }
 
-func (arps *AssumeRolePolicyStatement) MarshalPolicyDocument() iam.PolicyDocument {
+func (arps AssumeRolePolicyStatement) MarshalPolicyDocument() iam.PolicyDocument {
 	policyDocument := iam.PolicyDocument{}
 
 	var policyStatement []iam.StatementEntry
-	for _, entry := range *arps {
+	for _, entry := range arps {
 		policyStatement = append(policyStatement, iam.StatementEntry{
 			Sid:       entry.Sid,
 			Effect:    entry.Effect.String(),
