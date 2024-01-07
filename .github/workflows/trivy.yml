@@ -1,0 +1,72 @@
+---
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: trivy
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
+
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches:
+      - main
+      - master
+  schedule:
+    - cron: '19 0 * * 3'
+
+permissions:
+  contents: read # for actions/checkout to fetch code
+  security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+
+jobs:
+  scan:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner with rootfs command
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'rootfs'
+          scan-ref: '/github/workspace/'
+          ignore-unfixed: false
+          format: 'sarif'
+          output: 'trivy-rootfs.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-rootfs.sarif'
+          category: 'trivy-rootfs'
+
+      - name: Build an image from Dockerfile
+        run: |
+          docker build -t docker.io/redradrat/aws-iam-operator:${{ github.sha }} .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'docker.io/redradrat/aws-iam-operator:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-oci-image.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-oci-image.sarif'
+          category: 'trivy-oci-image'
